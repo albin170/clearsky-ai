@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Heart, MessageCircle, Share2, Bookmark, Music2, 
   Sparkles, CheckCircle2, ChevronUp, ChevronDown, 
   Volume2, VolumeX, Plus, X, Send, Play, Pause, 
-  Video, Flame, Wind, ShieldAlert, Award, ArrowRight
+  Video, Flame, Wind, Download, ArrowRight, Copy, Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../../services/api';
@@ -24,7 +24,7 @@ const FALLBACK_REELS: Reel[] = [
     creator_handle: "@DrPulmonology",
     creator_avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&auto=format&fit=crop&q=80",
     creator_verified: true,
-    audio_title: "Original Audio - Inversion Physics & Health Alert",
+    audio_title: "Atmospheric Chill Lo-Fi Beat",
     audio_artist: "Dr. Vikram Seth • Trending Sound",
     aqi_badge: "AQI 445 • Severe",
     likes_count: 14280,
@@ -34,6 +34,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: false,
     is_saved: false,
     video_url: "/videos/outdoor-jogging.mp4",
+    audio_url: "/audio/reel-track-1.mp3",
     theme_gradient: "from-rose-950 via-amber-950 to-neutral-950",
     visual_type: "inversion_layer",
     key_takeaway: "Switch outdoor cardio to 12 PM - 3 PM when solar radiation breaks the boundary layer lid.",
@@ -72,7 +73,7 @@ const FALLBACK_REELS: Reel[] = [
     creator_handle: "@AerosolLabs",
     creator_avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
     creator_verified: true,
-    audio_title: "Lab Frequency - Electrostatic Capture Test",
+    audio_title: "Deep Electro Lab Beat",
     audio_artist: "Aerosol Labs • Original Audio",
     aqi_badge: "Filtration: 98.4%",
     likes_count: 28940,
@@ -82,6 +83,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: false,
     is_saved: true,
     video_url: "/videos/fluid-diffusion.mp4",
+    audio_url: "/audio/reel-track-2.mp3",
     theme_gradient: "from-teal-950 via-cyan-950 to-neutral-950",
     visual_type: "mask_microscope",
     key_takeaway: "Only certified N95/FFP2 masks with electrostatic melt-blown core filter sub-micron particles.",
@@ -111,7 +113,7 @@ const FALLBACK_REELS: Reel[] = [
     creator_handle: "@GreenHomeCoach",
     creator_avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
     creator_verified: true,
-    audio_title: "Aesthetic Lofi - Green Oxygen Waves",
+    audio_title: "Relaxing Acoustic Nature Groove",
     audio_artist: "Green Home Sounds",
     aqi_badge: "Indoor VOC -42%",
     likes_count: 42100,
@@ -121,6 +123,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: true,
     is_saved: true,
     video_url: "/videos/nature-clean-air.mp4",
+    audio_url: "/audio/reel-track-3.mp3",
     theme_gradient: "from-emerald-950 via-green-950 to-neutral-950",
     visual_type: "nasa_plants",
     key_takeaway: "Keep 2-3 Snake Plants per 100 sq ft bedroom for cleaner nocturnal breathing and deeper REM sleep.",
@@ -160,6 +163,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: false,
     is_saved: false,
     video_url: "/videos/fluid-diffusion.mp4",
+    audio_url: "/audio/reel-track-1.mp3",
     theme_gradient: "from-blue-950 via-indigo-950 to-neutral-950",
     visual_type: "purifier_cadr",
     key_takeaway: "Always blast High Mode for 20 minutes with doors closed before dropping down to medium maintenance mode.",
@@ -199,6 +203,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: false,
     is_saved: false,
     video_url: "/videos/traffic-smog.mp4",
+    audio_url: "/audio/reel-track-2.mp3",
     theme_gradient: "from-orange-950 via-red-950 to-neutral-950",
     visual_type: "stubble_satellite",
     key_takeaway: "North-Westerly wind speed drops to zero over the bowl topography of the capital, trapping biomass soot.",
@@ -238,6 +243,7 @@ const FALLBACK_REELS: Reel[] = [
     is_liked: true,
     is_saved: true,
     video_url: "/videos/fluid-diffusion.mp4",
+    audio_url: "/audio/reel-track-3.mp3",
     theme_gradient: "from-rose-950 via-red-900 to-neutral-950",
     visual_type: "bloodstream_nanoparticles",
     key_takeaway: "Antioxidant-rich nutrition (Vitamin C, E, Omega-3) and air purifiers attenuate inflammatory arterial stress.",
@@ -265,7 +271,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showPlayOverlay, setShowPlayOverlay] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -273,6 +279,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // New reel creation state
   const [newTitle, setNewTitle] = useState('');
@@ -281,14 +288,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const [newTakeaway, setNewTakeaway] = useState('');
   const [newTags, setNewTags] = useState('#CleanAir, #BreatheSafe');
   const [newVideoUrl, setNewVideoUrl] = useState('/videos/outdoor-jogging.mp4');
+  const [newAudioUrl, setNewAudioUrl] = useState('/audio/reel-track-1.mp3');
 
-  // Video element ref
+  // Video and Audio element refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Audio synthesis reference
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const oscRef = useRef<OscillatorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Touch swipe handling
   const touchStartY = useRef<number | null>(null);
@@ -316,70 +320,36 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
 
   const currentReel = reels[currentIndex] || FALLBACK_REELS[0];
 
-  // Video play/pause on reel change
+  // Video & Audio play/pause sync on reel change
   useEffect(() => {
     setIsPlaying(true);
     setVideoProgress(0);
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Autoplay policy prevented playback, keep ready
-        });
+      videoRef.current.play().catch(() => {});
+    }
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.muted = isMuted;
+      if (!isMuted) {
+        audioRef.current.volume = 0.7;
+        audioRef.current.play().catch(() => {});
       }
     }
-  }, [currentIndex, currentReel.video_url]);
+  }, [currentIndex, currentReel.video_url, currentReel.audio_url]);
 
-  // Ambient sound synthesizer
-  const startAmbientSound = useCallback(() => {
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-
-      if (oscRef.current) {
-        oscRef.current.stop();
-        oscRef.current.disconnect();
-      }
-
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(110 + (currentIndex * 15), ctx.currentTime);
-
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(isMuted ? 0.0001 : 0.04, ctx.currentTime + 1.5);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-
-      oscRef.current = osc;
-      gainNodeRef.current = gain;
-    } catch (e) {
-      // Audio autoplay policy
-    }
-  }, [currentIndex, isMuted]);
-
+  // Audio volume and mute sync
   useEffect(() => {
-    if (!isMuted) {
-      startAmbientSound();
-    } else if (gainNodeRef.current && audioCtxRef.current) {
-      gainNodeRef.current.gain.setValueAtTime(0.0001, audioCtxRef.current.currentTime);
-    }
-    return () => {
-      if (oscRef.current) {
-        try { oscRef.current.stop(); } catch (_) {}
+    if (audioRef.current) {
+      audioRef.current.muted = isMuted;
+      if (!isMuted && isPlaying) {
+        audioRef.current.volume = 0.7;
+        audioRef.current.play().catch(() => {});
+      } else if (isMuted) {
+        audioRef.current.pause();
       }
-    };
-  }, [currentIndex, isMuted, startAmbientSound]);
+    }
+  }, [isMuted, isPlaying]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -405,7 +375,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isCommentsOpen || isCreateModalOpen) return;
+      if (isCommentsOpen || isCreateModalOpen || isDownloadModalOpen) return;
       if (e.key === 'ArrowDown' || e.key === 'j') handleNext();
       if (e.key === 'ArrowUp' || e.key === 'k') handlePrev();
       if (e.key === ' ') {
@@ -415,7 +385,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, reels.length, isCommentsOpen, isCreateModalOpen]);
+  }, [currentIndex, reels.length, isCommentsOpen, isCreateModalOpen, isDownloadModalOpen]);
 
   // Touch handlers for vertical reel swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -430,18 +400,25 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     touchStartY.current = null;
   };
 
-  // Toggle video play/pause
+  // Toggle video & audio play/pause in sync
   const togglePlayPause = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+        if (audioRef.current && !isMuted) {
+          audioRef.current.play().catch(() => {});
+        }
+        setIsPlaying(true);
+      } else {
+        videoRef.current.pause();
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        setIsPlaying(false);
+      }
+      setShowPlayOverlay(true);
+      setTimeout(() => setShowPlayOverlay(false), 800);
     }
-    setShowPlayOverlay(true);
-    setTimeout(() => setShowPlayOverlay(false), 800);
   };
 
   // Handle video time progress
@@ -481,7 +458,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const handleCardTap = () => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      // Double tap -> Like
       clearTimeout(singleTapTimeoutRef.current);
       if (!currentReel.is_liked) {
         handleLike();
@@ -490,7 +466,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
         setTimeout(() => setShowHeartBurst(false), 900);
       }
     } else {
-      // Single tap -> Toggle Play/Pause
       singleTapTimeoutRef.current = setTimeout(() => {
         togglePlayPause();
       }, 300);
@@ -579,7 +554,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       creator_handle: '@you_air_hero',
       creator_avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=80',
       creator_verified: false,
-      audio_title: 'Original Community Audio',
+      audio_title: 'Original Community Audio Track',
       audio_artist: 'Community Voice • Trending',
       aqi_badge: 'Community Intel',
       likes_count: 1,
@@ -589,6 +564,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       is_liked: true,
       is_saved: false,
       video_url: newVideoUrl,
+      audio_url: newAudioUrl,
       theme_gradient: 'from-teal-950 via-slate-900 to-neutral-950',
       visual_type: 'inversion_layer',
       key_takeaway: newTakeaway.trim() || 'Protect respiratory health with continuous real-time monitoring.',
@@ -612,7 +588,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     } catch (_) {}
   };
 
-  // Overlay scene indicator
   const renderVisualBadge = (type: string) => {
     switch (type) {
       case 'inversion_layer':
@@ -669,27 +644,40 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-extrabold text-white flex items-center space-x-2">
-              <span>EcoReels Videos</span>
+              <span>EcoReels Videos & MP3 Tracks</span>
               <span className="text-[10px] uppercase font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full flex items-center space-x-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                <span>Streaming Video</span>
+                <span>MP4 + MP3 Sync</span>
               </span>
             </h1>
             <p className="text-[11px] text-neutral-400">
-              High-impact 30s looping videos on atmospheric science, pollution hacks & pulmonology intel
+              High-impact 30s looping videos with synced MP3 audio soundtracks & direct downloads
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Mute toggle */}
+          {/* Mute/Unmute MP3 audio toggle */}
           <button
             onClick={() => setIsMuted(prev => !prev)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition text-xs font-bold"
-            title={isMuted ? "Unmute Video Audio" : "Mute Video Audio"}
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border transition text-xs font-bold ${
+              isMuted 
+                ? 'bg-neutral-800 border-neutral-700 text-neutral-400' 
+                : 'bg-teal-600/20 border-teal-500/50 text-teal-300'
+            }`}
+            title={isMuted ? "Unmute MP3 Audio Track" : "Mute Audio Track"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-neutral-400" /> : <Volume2 className="w-4 h-4 text-teal-400 animate-pulse" />}
-            <span>{isMuted ? "Sound Off" : "Sound On"}</span>
+            <span>{isMuted ? "Sound: Muted" : "MP3 Sound: ON"}</span>
+          </button>
+
+          {/* Download Media Button */}
+          <button
+            onClick={() => setIsDownloadModalOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-xs font-bold transition shadow-sm"
+          >
+            <Download className="w-4 h-4 text-teal-400" />
+            <span>Download MP4 / MP3</span>
           </button>
 
           {/* Create Reel Button */}
@@ -750,14 +738,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           </button>
         </div>
 
-        {/* Vertical Reel Card with Real Background Streaming Video */}
+        {/* Vertical Reel Card with Background MP4 Video and Real MP3 Audio */}
         <div 
           onClick={handleCardTap}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           className={`relative w-full aspect-[9/16] max-h-[78vh] rounded-3xl overflow-hidden bg-black border border-neutral-700/60 shadow-2xl select-none flex flex-col justify-between cursor-pointer`}
         >
-          {/* Real HTML5 Streaming Video Player */}
+          {/* Real HTML5 Streaming MP4 Video Player */}
           {currentReel.video_url && (
             <video
               ref={videoRef}
@@ -765,12 +753,22 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               src={currentReel.video_url}
               autoPlay
               loop
-              muted={isMuted}
+              muted={true}
               playsInline
               onTimeUpdate={handleTimeUpdate}
               className="absolute inset-0 w-full h-full object-cover z-0"
             />
           )}
+
+          {/* Real HTML5 Synchronized MP3 Audio Track */}
+          <audio
+            ref={audioRef}
+            key={currentReel.audio_url || currentReel.id}
+            src={currentReel.audio_url || '/audio/reel-track-1.mp3'}
+            loop
+            muted={isMuted}
+            preload="auto"
+          />
 
           {/* Fallback Animated Gradient if video is loading */}
           <div className={`absolute inset-0 bg-gradient-to-b ${currentReel.theme_gradient} opacity-40 mix-blend-multiply z-0 pointer-events-none`} />
@@ -809,8 +807,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               <div className="flex items-center space-x-1.5">
                 <span className="font-black tracking-wider text-[11px] uppercase bg-black/60 px-2.5 py-0.5 rounded-full border border-white/20 backdrop-blur-md flex items-center space-x-1">
                   <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                  <span>{isPlaying ? 'Playing HD' : 'Paused'}</span>
+                  <span>{isPlaying ? 'Streaming MP4' : 'Paused'}</span>
                 </span>
+                {!isMuted && (
+                  <span className="text-[10px] font-bold text-teal-300 bg-teal-950/80 px-2 py-0.5 rounded-full border border-teal-500/40 flex items-center space-x-1">
+                    <Music2 className="w-2.5 h-2.5 animate-bounce" />
+                    <span>MP3 Active</span>
+                  </span>
+                )}
               </div>
               {currentReel.aqi_badge && (
                 <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-rose-600/90 text-white border border-rose-400/40 shadow-sm animate-pulse">
@@ -836,7 +840,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           </div>
 
           {/* Instagram Action Sidebar (Right side) */}
-          <div className="absolute right-3 bottom-20 z-30 flex flex-col items-center space-y-4">
+          <div className="absolute right-3 bottom-20 z-30 flex flex-col items-center space-y-3.5">
             {/* Like Button */}
             <button
               onClick={(e) => { e.stopPropagation(); handleLike(); }}
@@ -847,9 +851,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
                   ? 'bg-rose-500/30 text-rose-500 border border-rose-500/50' 
                   : 'bg-black/50 text-white hover:bg-black/70 border border-white/20'
               }`}>
-                <Heart className={`w-6 h-6 transition ${currentReel.is_liked ? 'fill-rose-500 text-rose-500' : ''}`} />
+                <Heart className={`w-5 h-5 transition ${currentReel.is_liked ? 'fill-rose-500 text-rose-500' : ''}`} />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">
+              <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow">
                 {currentReel.likes_count.toLocaleString()}
               </span>
             </button>
@@ -860,9 +864,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               className="flex flex-col items-center group transition active:scale-75"
             >
               <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
-                <MessageCircle className="w-6 h-6" />
+                <MessageCircle className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">
+              <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow">
                 {currentReel.comments_count.toLocaleString()}
               </span>
             </button>
@@ -877,9 +881,21 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
                   ? 'bg-amber-500/30 text-amber-400 border border-amber-500/50' 
                   : 'bg-black/50 text-white hover:bg-black/70 border border-white/20'
               }`}>
-                <Bookmark className={`w-6 h-6 transition ${currentReel.is_saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                <Bookmark className={`w-5 h-5 transition ${currentReel.is_saved ? 'fill-amber-400 text-amber-400' : ''}`} />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">Save</span>
+              <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow">Save</span>
+            </button>
+
+            {/* Download Media (MP4/MP3) Button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsDownloadModalOpen(true); }}
+              className="flex flex-col items-center group transition active:scale-75"
+              title="Download MP4 Video or MP3 Audio"
+            >
+              <div className="p-3 rounded-full bg-teal-600/60 text-white hover:bg-teal-600 border border-teal-400/50 backdrop-blur-md shadow-lg">
+                <Download className="w-5 h-5 text-teal-200" />
+              </div>
+              <span className="text-[10px] font-bold text-teal-300 mt-0.5 drop-shadow">Media</span>
             </button>
 
             {/* Share Button */}
@@ -888,9 +904,9 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               className="flex flex-col items-center group transition active:scale-75"
             >
               <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
-                <Share2 className="w-6 h-6" />
+                <Share2 className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">Share</span>
+              <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow">Share</span>
             </button>
 
             {/* Video Sound / Mute Toggle Button */}
@@ -898,17 +914,21 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}
               className="flex flex-col items-center group transition active:scale-75"
             >
-              <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
-                {isMuted ? <VolumeX className="w-6 h-6 text-neutral-400" /> : <Volume2 className="w-6 h-6 text-teal-400" />}
+              <div className={`p-3 rounded-full border backdrop-blur-md transition ${
+                !isMuted 
+                  ? 'bg-teal-500/30 text-teal-300 border-teal-500/60' 
+                  : 'bg-black/50 text-white border-white/20'
+              }`}>
+                {isMuted ? <VolumeX className="w-5 h-5 text-neutral-400" /> : <Volume2 className="w-5 h-5 text-teal-400 animate-pulse" />}
               </div>
-              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">
-                {isMuted ? 'Muted' : 'Audio'}
+              <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow">
+                {isMuted ? 'Muted' : 'Sound'}
               </span>
             </button>
 
             {/* Spinning Music Disc Icon */}
-            <div className="relative pt-1">
-              <div className={`w-10 h-10 rounded-full border-2 border-white/40 bg-neutral-900 overflow-hidden flex items-center justify-center ${isPlaying ? 'animate-spin [animation-duration:4s]' : ''}`}>
+            <div className="relative pt-0.5">
+              <div className={`w-9 h-9 rounded-full border-2 border-white/40 bg-neutral-900 overflow-hidden flex items-center justify-center ${isPlaying && !isMuted ? 'animate-spin [animation-duration:4s]' : ''}`}>
                 <img 
                   src={currentReel.creator_avatar} 
                   alt="vinyl" 
@@ -1017,6 +1037,115 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
         </div>
       </div>
 
+      {/* Download Media Modal (MP4 Video & MP3 Audio) */}
+      {isDownloadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Download Media Files</h3>
+                  <p className="text-xs text-neutral-400">Direct MP4 Video & MP3 Audio Downloads</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current reel info */}
+            <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800/80 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-teal-400">Selected Reel</span>
+              <h4 className="text-sm font-bold text-white">{currentReel.title}</h4>
+              <p className="text-xs text-neutral-400">{currentReel.creator_name} ({currentReel.creator_handle})</p>
+            </div>
+
+            {/* Download Options */}
+            <div className="space-y-3">
+              {/* MP4 Video Option */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-950/60 to-neutral-900 border border-teal-500/30 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300">
+                    <Video className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-white text-xs">High-Definition MP4 Video</h5>
+                    <p className="text-[11px] text-neutral-400 font-mono">{currentReel.video_url || '/videos/outdoor-jogging.mp4'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={currentReel.video_url || '/videos/outdoor-jogging.mp4'}
+                    download={`${currentReel.id}-video.mp4`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Save MP4</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* MP3 Audio Option */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 to-neutral-900 border border-purple-500/30 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-purple-600/20 text-purple-300">
+                    <Music2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-white text-xs">Original MP3 Audio Track</h5>
+                    <p className="text-[11px] text-neutral-400 font-mono">{currentReel.audio_url || '/audio/reel-track-1.mp3'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={currentReel.audio_url || '/audio/reel-track-1.mp3'}
+                    download={`${currentReel.id}-audio.mp3`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Save MP3</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Direct Copy Links */}
+            <div className="pt-2 flex justify-between gap-2 text-xs">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}${currentReel.video_url || '/videos/outdoor-jogging.mp4'}`);
+                  showToast("Direct MP4 URL copied! 📋");
+                }}
+                className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition font-medium"
+              >
+                <Copy className="w-3.5 h-3.5 text-teal-400" />
+                <span>Copy MP4 URL</span>
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}${currentReel.audio_url || '/audio/reel-track-1.mp3'}`);
+                  showToast("Direct MP3 URL copied! 📋");
+                }}
+                className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition font-medium"
+              >
+                <Copy className="w-3.5 h-3.5 text-purple-400" />
+                <span>Copy MP3 URL</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Instagram-Style Comments Bottom Sheet Drawer */}
       {isCommentsOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex justify-center items-end sm:items-center p-0 sm:p-4 animate-in fade-in duration-200">
@@ -1124,16 +1253,29 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-bold mb-1">Select Video Clip</label>
+                <label className="block text-neutral-300 font-bold mb-1">Select MP4 Video Clip</label>
                 <select
                   value={newVideoUrl}
                   onChange={(e) => setNewVideoUrl(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
                 >
-                  <option value="/videos/outdoor-jogging.mp4">🏃‍♂️ Outdoor Jogging & Smog Morning</option>
-                  <option value="/videos/traffic-smog.mp4">🚗 City Traffic & Vehicle Exhaust</option>
-                  <option value="/videos/nature-clean-air.mp4">🌿 NASA Clean Air Blooming Nature</option>
-                  <option value="/videos/fluid-diffusion.mp4">🔬 Micro-Particulate Aerosol Flow</option>
+                  <option value="/videos/outdoor-jogging.mp4">🏃‍♂️ Outdoor Jogging & Smog Morning (/videos/outdoor-jogging.mp4)</option>
+                  <option value="/videos/traffic-smog.mp4">🚗 City Traffic & Vehicle Exhaust (/videos/traffic-smog.mp4)</option>
+                  <option value="/videos/nature-clean-air.mp4">🌿 NASA Clean Air Blooming Nature (/videos/nature-clean-air.mp4)</option>
+                  <option value="/videos/fluid-diffusion.mp4">🔬 Micro-Particulate Aerosol Flow (/videos/fluid-diffusion.mp4)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-neutral-300 font-bold mb-1">Select MP3 Audio Track</label>
+                <select
+                  value={newAudioUrl}
+                  onChange={(e) => setNewAudioUrl(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value="/audio/reel-track-1.mp3">🎵 Lo-Fi Chill Environmental Sound (Track 1)</option>
+                  <option value="/audio/reel-track-2.mp3">🎵 Deep Electro Lab Synth (Track 2)</option>
+                  <option value="/audio/reel-track-3.mp3">🎵 Acoustic Nature Groove (Track 3)</option>
                 </select>
               </div>
 
