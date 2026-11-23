@@ -3,6 +3,7 @@ export const en = {
   tagline: 'GenAI Winter Smog & Environmental Intelligence',
   nav: {
     dashboard: 'Dashboard',
+    reels: 'EcoReels',
     assistant: 'AI Assistant',
     family: 'My Family',
     indoor: 'Indoor Air',

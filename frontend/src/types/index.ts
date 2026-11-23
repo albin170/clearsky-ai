@@ -261,3 +261,42 @@ export interface NotificationAlert {
   message: string;
   recommended_action: string;
 }
+
+export interface ReelComment {
+  id: string;
+  author: string;
+  handle: string;
+  avatar: string;
+  text: string;
+  likes: number;
+  timestamp: string;
+}
+
+export interface Reel {
+  id: string;
+  title: string;
+  caption: string;
+  tags: string[];
+  category: 'smog_alert' | 'health' | 'home_hacks' | 'stubble_fire' | 'tech';
+  creator_name: string;
+  creator_handle: string;
+  creator_avatar: string;
+  creator_verified: boolean;
+  audio_title: string;
+  audio_artist: string;
+  aqi_badge?: string;
+  likes_count: number;
+  comments_count: number;
+  shares_count: number;
+  views_count: number;
+  is_liked: boolean;
+  is_saved: boolean;
+  theme_gradient: string;
+  visual_type: string;
+  key_takeaway: string;
+  action_cta?: {
+    label: string;
+    tab: string;
+  };
+  comments: ReelComment[];
+}

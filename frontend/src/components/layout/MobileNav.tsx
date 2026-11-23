@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Bot, Users, Home, Map, Award } from 'lucide-react';
+import { LayoutDashboard, Bot, Users, Home, Map, Award, Clapperboard } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface MobileNavProps {
@@ -12,8 +12,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab })
 
   const items = [
     { id: 'dashboard', label: 'AQI', icon: LayoutDashboard },
+    { id: 'reels', label: 'Reels', icon: Clapperboard },
     { id: 'assistant', label: 'AI Chat', icon: Bot },
-    { id: 'family', label: 'Family', icon: Users },
     { id: 'indoor', label: 'Indoor', icon: Home },
     { id: 'map', label: 'Map', icon: Map },
     { id: 'impact', label: 'Impact', icon: Award },

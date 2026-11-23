@@ -2,7 +2,7 @@ import {
   AirQualityResponse, User, FamilyMember, FamilyDailyPlanResponse,
   RoomAssessment, VentilationWindowAdvice, RoutineOut, PredictionResponse,
   Community, CommunityChallenge, CommunityReport, ImpactSummary,
-  WhatIfResponse, CleanRouteResponse, NotificationAlert
+  WhatIfResponse, CleanRouteResponse, NotificationAlert, Reel, ReelComment
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -377,6 +377,53 @@ export const api = {
 
   async getAuditLogs(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/admin/audit-logs`, { headers: getAuthHeaders() });
+    return res.json();
+  },
+
+  // EcoReels - Environmental Shorts
+  async getReels(category?: string, search?: string): Promise<Reel[]> {
+    const params = new URLSearchParams();
+    if (category && category !== 'all') params.append('category', category);
+    if (search) params.append('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API_BASE}/reels${qs}`);
+    if (!res.ok) throw new Error('Failed to load reels');
+    return res.json();
+  },
+
+  async toggleReelLike(reelId: string): Promise<{ id: string; is_liked: boolean; likes_count: number }> {
+    const res = await fetch(`${API_BASE}/reels/${reelId}/like`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to toggle like');
+    return res.json();
+  },
+
+  async toggleReelSave(reelId: string): Promise<{ id: string; is_saved: boolean }> {
+    const res = await fetch(`${API_BASE}/reels/${reelId}/save`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to toggle bookmark');
+    return res.json();
+  },
+
+  async addReelComment(reelId: string, text: string, author?: string, handle?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/reels/${reelId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        author: author || 'EcoCitizen',
+        handle: handle || '@citizen_eco'
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to post comment');
+    return res.json();
+  },
+
+  async createReel(data: Partial<Reel>): Promise<Reel> {
+    const res = await fetch(`${API_BASE}/reels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create reel');
     return res.json();
   },
 };

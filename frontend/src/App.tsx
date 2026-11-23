@@ -18,6 +18,7 @@ import { MapView } from './components/map/MapView';
 import { CommunityView } from './components/community/CommunityView';
 import { ImpactView } from './components/impact/ImpactView';
 import { EducationView } from './components/education/EducationView';
+import { ReelsView } from './components/reels/ReelsView';
 import { AdminView } from './components/admin/AdminView';
 import { SettingsView } from './components/settings/SettingsView';
 
@@ -29,6 +30,8 @@ const AppContent: React.FC = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
+      case 'reels':
+        return <ReelsView onNavigateTab={setActiveTab} />;
       case 'assistant':
         return <AssistantView />;
       case 'family':

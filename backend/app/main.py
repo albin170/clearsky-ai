@@ -9,7 +9,7 @@ from app.models.models import User, Community, CommunityChallenge
 from app.api import (
     auth, air_quality, assistant, family, 
     indoor, routine, prediction, community, 
-    impact, routes, education, admin, notifications
+    impact, routes, education, admin, notifications, reels
 )
 
 @asynccontextmanager
@@ -130,6 +130,7 @@ app.include_router(routes.router, prefix=settings.API_V1_STR)
 app.include_router(education.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
+app.include_router(reels.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

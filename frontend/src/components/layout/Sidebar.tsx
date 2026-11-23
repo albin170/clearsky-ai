@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   LayoutDashboard, Bot, Users, Home, CalendarCheck, 
   Map, UsersRound, Award, BookOpen, ShieldCheck, Settings,
-  TrendingUp
+  TrendingUp, Clapperboard
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
 
   const navItems = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { id: 'reels', label: t('nav.reels'), icon: Clapperboard, badge: 'Reels' },
     { id: 'assistant', label: t('nav.assistant'), icon: Bot, badge: 'GenAI' },
     { id: 'family', label: t('nav.family'), icon: Users },
     { id: 'indoor', label: t('nav.indoor'), icon: Home },
