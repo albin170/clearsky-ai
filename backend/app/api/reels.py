@@ -21,6 +21,7 @@ class ReelCreate(BaseModel):
     theme_gradient: str = "from-amber-600 via-rose-700 to-neutral-950"
     visual_type: str = "inversion_layer"
     video_url: Optional[str] = "/videos/outdoor-jogging.mp4"
+    audio_url: Optional[str] = "/audio/reel-track-1.mp3"
     key_takeaway: str
 
 INITIAL_REELS: List[Dict[str, Any]] = [
