@@ -20,6 +20,7 @@ class ReelCreate(BaseModel):
     aqi_badge: Optional[str] = "AQI 320 • Very Poor"
     theme_gradient: str = "from-amber-600 via-rose-700 to-neutral-950"
     visual_type: str = "inversion_layer"
+    video_url: Optional[str] = "/videos/outdoor-jogging.mp4"
     key_takeaway: str
 
 INITIAL_REELS: List[Dict[str, Any]] = [
@@ -42,6 +43,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 182400,
         "is_liked": False,
         "is_saved": False,
+        "video_url": "/videos/outdoor-jogging.mp4",
         "theme_gradient": "from-rose-900 via-amber-950 to-neutral-950",
         "visual_type": "inversion_layer",
         "key_takeaway": "Switch outdoor cardio to 12 PM - 3 PM when solar radiation breaks the boundary layer lid.",
@@ -89,6 +91,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 341000,
         "is_liked": False,
         "is_saved": True,
+        "video_url": "/videos/fluid-diffusion.mp4",
         "theme_gradient": "from-teal-900 via-cyan-950 to-neutral-950",
         "visual_type": "mask_microscope",
         "key_takeaway": "Only certified N95/FFP2 masks with electrostatic melt-blown core filter sub-micron particles.",
@@ -127,6 +130,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 520000,
         "is_liked": True,
         "is_saved": True,
+        "video_url": "/videos/nature-clean-air.mp4",
         "theme_gradient": "from-emerald-900 via-green-950 to-neutral-950",
         "visual_type": "nasa_plants",
         "key_takeaway": "Keep 2-3 Snake Plants per 100 sq ft bedroom for cleaner nocturnal breathing and deeper REM sleep.",
@@ -165,6 +169,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 215000,
         "is_liked": False,
         "is_saved": False,
+        "video_url": "/videos/fluid-diffusion.mp4",
         "theme_gradient": "from-blue-900 via-indigo-950 to-neutral-950",
         "visual_type": "purifier_cadr",
         "key_takeaway": "Always blast High Mode for 20 minutes with doors closed before dropping down to medium maintenance mode.",
@@ -203,6 +208,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 480000,
         "is_liked": False,
         "is_saved": False,
+        "video_url": "/videos/traffic-smog.mp4",
         "theme_gradient": "from-orange-950 via-red-950 to-neutral-950",
         "visual_type": "stubble_satellite",
         "key_takeaway": "North-Westerly wind speed drops to zero over the bowl topography of the capital, trapping biomass soot.",
@@ -241,6 +247,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
         "views_count": 680000,
         "is_liked": True,
         "is_saved": True,
+        "video_url": "/videos/fluid-diffusion.mp4",
         "theme_gradient": "from-rose-950 via-red-900 to-neutral-950",
         "visual_type": "bloodstream_nanoparticles",
         "key_takeaway": "Antioxidant-rich nutrition (Vitamin C, E, Omega-3) and air purifiers attenuate inflammatory arterial stress.",
@@ -369,6 +376,7 @@ def create_reel(payload: ReelCreate):
         "views_count": 1,
         "is_liked": True,
         "is_saved": False,
+        "video_url": payload.video_url or "/videos/nature-clean-air.mp4",
         "theme_gradient": payload.theme_gradient,
         "visual_type": payload.visual_type,
         "key_takeaway": payload.key_takeaway,

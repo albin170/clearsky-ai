@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Heart, MessageCircle, Share2, Bookmark, Music2, 
   Sparkles, CheckCircle2, ChevronUp, ChevronDown, 
-  Volume2, VolumeX, Plus, X, Send, Eye, Flame, 
-  Wind, ShieldAlert, Award, ExternalLink, ArrowRight
+  Volume2, VolumeX, Plus, X, Send, Play, Pause, 
+  Video, Flame, Wind, ShieldAlert, Award, ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../../services/api';
@@ -33,6 +33,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 182400,
     is_liked: false,
     is_saved: false,
+    video_url: "/videos/outdoor-jogging.mp4",
     theme_gradient: "from-rose-950 via-amber-950 to-neutral-950",
     visual_type: "inversion_layer",
     key_takeaway: "Switch outdoor cardio to 12 PM - 3 PM when solar radiation breaks the boundary layer lid.",
@@ -80,6 +81,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 341000,
     is_liked: false,
     is_saved: true,
+    video_url: "/videos/fluid-diffusion.mp4",
     theme_gradient: "from-teal-950 via-cyan-950 to-neutral-950",
     visual_type: "mask_microscope",
     key_takeaway: "Only certified N95/FFP2 masks with electrostatic melt-blown core filter sub-micron particles.",
@@ -118,6 +120,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 520000,
     is_liked: true,
     is_saved: true,
+    video_url: "/videos/nature-clean-air.mp4",
     theme_gradient: "from-emerald-950 via-green-950 to-neutral-950",
     visual_type: "nasa_plants",
     key_takeaway: "Keep 2-3 Snake Plants per 100 sq ft bedroom for cleaner nocturnal breathing and deeper REM sleep.",
@@ -156,6 +159,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 215000,
     is_liked: false,
     is_saved: false,
+    video_url: "/videos/fluid-diffusion.mp4",
     theme_gradient: "from-blue-950 via-indigo-950 to-neutral-950",
     visual_type: "purifier_cadr",
     key_takeaway: "Always blast High Mode for 20 minutes with doors closed before dropping down to medium maintenance mode.",
@@ -194,6 +198,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 480000,
     is_liked: false,
     is_saved: false,
+    video_url: "/videos/traffic-smog.mp4",
     theme_gradient: "from-orange-950 via-red-950 to-neutral-950",
     visual_type: "stubble_satellite",
     key_takeaway: "North-Westerly wind speed drops to zero over the bowl topography of the capital, trapping biomass soot.",
@@ -232,6 +237,7 @@ const FALLBACK_REELS: Reel[] = [
     views_count: 680000,
     is_liked: true,
     is_saved: true,
+    video_url: "/videos/fluid-diffusion.mp4",
     theme_gradient: "from-rose-950 via-red-900 to-neutral-950",
     visual_type: "bloodstream_nanoparticles",
     key_takeaway: "Antioxidant-rich nutrition (Vitamin C, E, Omega-3) and air purifiers attenuate inflammatory arterial stress.",
@@ -259,7 +265,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [showPlayOverlay, setShowPlayOverlay] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -271,6 +280,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const [newCategory, setNewCategory] = useState<'smog_alert' | 'health' | 'home_hacks' | 'stubble_fire' | 'tech'>('health');
   const [newTakeaway, setNewTakeaway] = useState('');
   const [newTags, setNewTags] = useState('#CleanAir, #BreatheSafe');
+  const [newVideoUrl, setNewVideoUrl] = useState('/videos/outdoor-jogging.mp4');
+
+  // Video element ref
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Audio synthesis reference
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -290,7 +303,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           setCurrentIndex(0);
         }
       } catch (err) {
-        // Fallback to local list filtered by category
         if (activeCategory === 'all') {
           setReels(FALLBACK_REELS);
         } else {
@@ -301,6 +313,23 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     }
     fetchReels();
   }, [activeCategory]);
+
+  const currentReel = reels[currentIndex] || FALLBACK_REELS[0];
+
+  // Video play/pause on reel change
+  useEffect(() => {
+    setIsPlaying(true);
+    setVideoProgress(0);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Autoplay policy prevented playback, keep ready
+        });
+      }
+    }
+  }, [currentIndex, currentReel.video_url]);
 
   // Ambient sound synthesizer
   const startAmbientSound = useCallback(() => {
@@ -322,7 +351,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      // Atmospheric ambient frequency (e.g. 110Hz binaural soothing drone)
       osc.type = 'sine';
       osc.frequency.setValueAtTime(110 + (currentIndex * 15), ctx.currentTime);
 
@@ -336,7 +364,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       oscRef.current = osc;
       gainNodeRef.current = gain;
     } catch (e) {
-      // Audio autoplay policy may block before user interaction
+      // Audio autoplay policy
     }
   }, [currentIndex, isMuted]);
 
@@ -358,13 +386,11 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const currentReel = reels[currentIndex] || FALLBACK_REELS[0];
-
   const handleNext = () => {
     if (currentIndex < reels.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      setCurrentIndex(0); // loop
+      setCurrentIndex(0);
     }
   };
 
@@ -382,6 +408,10 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       if (isCommentsOpen || isCreateModalOpen) return;
       if (e.key === 'ArrowDown' || e.key === 'j') handleNext();
       if (e.key === 'ArrowUp' || e.key === 'k') handlePrev();
+      if (e.key === ' ') {
+        e.preventDefault();
+        togglePlayPause();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -395,9 +425,31 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const diff = touchStartY.current - e.changedTouches[0].clientY;
-    if (diff > 50) handleNext(); // swipe up
-    else if (diff < -50) handlePrev(); // swipe down
+    if (diff > 50) handleNext();
+    else if (diff < -50) handlePrev();
     touchStartY.current = null;
+  };
+
+  // Toggle video play/pause
+  const togglePlayPause = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+    setShowPlayOverlay(true);
+    setTimeout(() => setShowPlayOverlay(false), 800);
+  };
+
+  // Handle video time progress
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      const pct = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      setVideoProgress(pct);
+    }
   };
 
   // Like interaction
@@ -422,17 +474,26 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     } catch (_) {}
   };
 
-  // Double tap to like
+  // Double tap to like or single tap to toggle play/pause
   const lastTapRef = useRef<number>(0);
+  const singleTapTimeoutRef = useRef<any>(null);
+
   const handleCardTap = () => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
+      // Double tap -> Like
+      clearTimeout(singleTapTimeoutRef.current);
       if (!currentReel.is_liked) {
         handleLike();
       } else {
         setShowHeartBurst(true);
         setTimeout(() => setShowHeartBurst(false), 900);
       }
+    } else {
+      // Single tap -> Toggle Play/Pause
+      singleTapTimeoutRef.current = setTimeout(() => {
+        togglePlayPause();
+      }, 300);
     }
     lastTapRef.current = now;
   };
@@ -460,7 +521,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       } catch (_) {}
     } else {
       await navigator.clipboard.writeText(`${currentReel.title}: ${window.location.href}`);
-      showToast("Reel link copied to clipboard! 📋");
+      showToast("Reel video link copied to clipboard! 📋");
     }
   };
 
@@ -527,6 +588,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       views_count: 1,
       is_liked: true,
       is_saved: false,
+      video_url: newVideoUrl,
       theme_gradient: 'from-teal-950 via-slate-900 to-neutral-950',
       visual_type: 'inversion_layer',
       key_takeaway: newTakeaway.trim() || 'Protect respiratory health with continuous real-time monitoring.',
@@ -543,168 +605,50 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
     setNewTitle('');
     setNewCaption('');
     setNewTakeaway('');
-    showToast("Your Eco Reel is now live!");
+    showToast("Your Eco Reel Video is now live!");
 
     try {
       await api.createReel(created);
     } catch (_) {}
   };
 
-  // Animated visual scene renderer based on visual_type
-  const renderVisualScene = (type: string) => {
+  // Overlay scene indicator
+  const renderVisualBadge = (type: string) => {
     switch (type) {
       case 'inversion_layer':
         return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden flex flex-col justify-between opacity-80">
-            {/* Upper warm air lid */}
-            <div className="h-32 bg-gradient-to-b from-amber-500/25 via-rose-500/15 to-transparent relative">
-              <div className="absolute top-4 left-6 flex items-center space-x-2 text-[10px] font-black uppercase text-amber-300 bg-amber-950/70 border border-amber-500/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                <Flame className="w-3 h-3 text-amber-400 animate-pulse" />
-                <span>Atmospheric Warm Inversion Lid (+4°C)</span>
-              </div>
-            </div>
-
-            {/* Trapped PM2.5 particulate fog simulation */}
-            <div className="relative h-64 flex flex-col justify-end p-6 bg-gradient-to-t from-black via-neutral-900/80 to-transparent">
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center justify-between text-[11px] text-rose-300">
-                  <span className="font-bold flex items-center space-x-1.5">
-                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Trapped Ground Layer (0 - 90m)</span>
-                  </span>
-                  <span className="font-mono bg-rose-950/80 border border-rose-500/40 px-2 py-0.5 rounded text-rose-200">
-                    PM2.5: 294 µg/m³
-                  </span>
-                </div>
-                {/* Visual altitude bar */}
-                <div className="w-full bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-gradient-to-r from-rose-500 to-amber-500 h-full w-[88%] animate-pulse" />
-                </div>
-              </div>
-
-              {/* Floating dust/soot SVG particles */}
-              <div className="absolute inset-0 flex items-center justify-around opacity-40">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
-                <div className="w-2 h-2 rounded-full bg-rose-400 animate-bounce" />
-                <div className="w-1 h-1 rounded-full bg-neutral-300 animate-pulse" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-              </div>
-            </div>
+          <div className="flex items-center space-x-1.5 text-[10px] font-black uppercase text-amber-300 bg-black/70 border border-amber-500/40 px-2.5 py-1 rounded-full backdrop-blur-md">
+            <Flame className="w-3 h-3 text-amber-400 animate-pulse" />
+            <span>Thermal Inversion Active (0-90m Ceiling)</span>
           </div>
         );
-
       case 'mask_microscope':
         return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-85 flex flex-col justify-center items-center p-6">
-            <div className="w-full max-w-[280px] p-4 rounded-2xl bg-black/60 border border-cyan-500/30 backdrop-blur-md space-y-3">
-              <div className="text-center">
-                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-500/30">
-                  🔬 500x Electron Microscope Scan
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/20">
-                  <div className="font-extrabold text-rose-400">Cloth Mask</div>
-                  <div className="text-[10px] text-neutral-400 mt-1">150µm Pore Gaps</div>
-                  <div className="text-sm font-black text-rose-300 mt-1">12% Filtered</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-teal-950/40 border border-teal-500/30">
-                  <div className="font-extrabold text-teal-300">N95 Meltblown</div>
-                  <div className="text-[10px] text-neutral-400 mt-1">Electrostatic Core</div>
-                  <div className="text-sm font-black text-teal-400 mt-1">98.4% Filtered</div>
-                </div>
-              </div>
-              <div className="text-[10px] text-cyan-200/80 text-center leading-relaxed">
-                Electrostatic attraction pulls sub-micron particles directly into fibers.
-              </div>
-            </div>
+          <div className="flex items-center space-x-1.5 text-[10px] font-black uppercase text-cyan-300 bg-black/70 border border-cyan-500/40 px-2.5 py-1 rounded-full backdrop-blur-md">
+            <span>🔬 500x Microscope: N95 vs Cloth Pores</span>
           </div>
         );
-
       case 'nasa_plants':
         return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-80 flex flex-col justify-center items-center p-6">
-            <div className="w-full max-w-[280px] p-4 rounded-2xl bg-black/60 border border-emerald-500/30 backdrop-blur-md space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  NASA Clean Air Bio-Audit
-                </span>
-                <span className="text-[10px] font-mono text-emerald-300 animate-pulse">Night CAM Active</span>
-              </div>
-              <div className="space-y-1.5 text-xs text-neutral-200">
-                <div className="flex justify-between items-center bg-neutral-900/60 p-1.5 rounded-lg">
-                  <span>🪴 Snake Plant (Sansevieria)</span>
-                  <span className="text-emerald-400 font-bold">+28% O2 (Night)</span>
-                </div>
-                <div className="flex justify-between items-center bg-neutral-900/60 p-1.5 rounded-lg">
-                  <span>🌿 Peace Lily (Spathiphyllum)</span>
-                  <span className="text-emerald-400 font-bold">-45% Acetone</span>
-                </div>
-                <div className="flex justify-between items-center bg-neutral-900/60 p-1.5 rounded-lg">
-                  <span>🌴 Areca Palm (Dypsis)</span>
-                  <span className="text-emerald-400 font-bold">1L / Day Moisture</span>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center space-x-1.5 text-[10px] font-black uppercase text-emerald-300 bg-black/70 border border-emerald-500/40 px-2.5 py-1 rounded-full backdrop-blur-md">
+            <span>🌿 NASA Clean Air Bio-Scrubbing</span>
           </div>
         );
-
       case 'purifier_cadr':
         return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-80 flex flex-col justify-center items-center p-6">
-            <div className="w-full max-w-[280px] p-4 rounded-2xl bg-black/60 border border-blue-500/30 backdrop-blur-md space-y-3 text-center">
-              <div className="text-[10px] font-black uppercase text-blue-400 tracking-wider">
-                🌀 Turbo Air Turnover Rate (ACH)
-              </div>
-              <div className="relative py-4 flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full border-4 border-dashed border-blue-400/40 animate-spin flex items-center justify-center">
-                  <Wind className="w-8 h-8 text-blue-300" />
-                </div>
-              </div>
-              <div className="text-xs text-blue-200 font-medium">
-                4.8 Air Changes / Hour on Turbo Mode
-              </div>
-              <div className="text-[10px] text-neutral-400">
-                Auto mode reduces airflow by 70%, prolonging smog inhalation.
-              </div>
-            </div>
+          <div className="flex items-center space-x-1.5 text-[10px] font-black uppercase text-blue-300 bg-black/70 border border-blue-500/40 px-2.5 py-1 rounded-full backdrop-blur-md">
+            <Wind className="w-3 h-3 text-blue-400 animate-spin" />
+            <span>Turbo CADR: 450 m³/h Turnover</span>
           </div>
         );
-
       case 'stubble_satellite':
         return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-80 flex flex-col justify-center items-center p-6">
-            <div className="w-full max-w-[280px] p-4 rounded-2xl bg-black/60 border border-orange-500/30 backdrop-blur-md space-y-2.5">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="font-black uppercase text-orange-400 bg-orange-950/80 px-2 py-0.5 rounded-full border border-orange-500/30">
-                  🛰️ ISRO / NASA FIRMS Vector
-                </span>
-                <span className="text-orange-300 font-mono">NW Wind: 8 km/h</span>
-              </div>
-              <div className="h-20 bg-gradient-to-br from-orange-950/50 to-neutral-900/90 rounded-xl border border-orange-500/20 p-2 flex flex-col justify-between">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-neutral-300">Punjab / Haryana</span>
-                  <span className="text-orange-400">🔥 3,410 Hotspots</span>
-                </div>
-                <div className="flex items-center space-x-2 text-[10px] text-neutral-400">
-                  <span>Plume Trajectory</span>
-                  <div className="flex-1 h-0.5 bg-gradient-to-r from-orange-500 to-red-500 animate-pulse" />
-                  <span className="text-white font-bold">Delhi NCR</span>
-                </div>
-              </div>
-              <div className="text-[10px] text-orange-200/90 text-center">
-                Trajectory delay: 12-16 hours from combustion to urban basin.
-              </div>
-            </div>
+          <div className="flex items-center space-x-1.5 text-[10px] font-black uppercase text-orange-300 bg-black/70 border border-orange-500/40 px-2.5 py-1 rounded-full backdrop-blur-md">
+            <span>🛰️ Satellite Plume: NW Wind Vector</span>
           </div>
         );
-
       default:
-        return (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40 flex items-center justify-center">
-            <div className="w-48 h-48 rounded-full bg-teal-500/10 blur-3xl animate-pulse" />
-          </div>
-        );
+        return null;
     }
   };
 
@@ -721,17 +665,18 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
       <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 bg-neutral-900/80 p-3.5 rounded-2xl border border-neutral-800 shadow-xl backdrop-blur-md">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 rounded-xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/20">
-            <Sparkles className="w-5 h-5" />
+            <Video className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-extrabold text-white flex items-center space-x-2">
-              <span>EcoReels</span>
-              <span className="text-[10px] uppercase font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                Live Shorts
+              <span>EcoReels Videos</span>
+              <span className="text-[10px] uppercase font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                <span>Streaming Video</span>
               </span>
             </h1>
             <p className="text-[11px] text-neutral-400">
-              High-impact 30s bite-sized atmospheric science, pollution hacks & pulmonology intel
+              High-impact 30s looping videos on atmospheric science, pollution hacks & pulmonology intel
             </p>
           </div>
         </div>
@@ -740,19 +685,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           {/* Mute toggle */}
           <button
             onClick={() => setIsMuted(prev => !prev)}
-            className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
-            title={isMuted ? "Unmute Ambient Sound" : "Mute Sound"}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition text-xs font-bold"
+            title={isMuted ? "Unmute Video Audio" : "Mute Video Audio"}
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-neutral-500" /> : <Volume2 className="w-4 h-4 text-teal-400" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-neutral-400" /> : <Volume2 className="w-4 h-4 text-teal-400 animate-pulse" />}
+            <span>{isMuted ? "Sound Off" : "Sound On"}</span>
           </button>
 
           {/* Create Reel Button */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Reel</span>
+            <span>Post Reel</span>
           </button>
         </div>
       </div>
@@ -804,15 +750,45 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           </button>
         </div>
 
-        {/* Vertical Reel Card */}
+        {/* Vertical Reel Card with Real Background Streaming Video */}
         <div 
           onClick={handleCardTap}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          className={`relative w-full aspect-[9/16] max-h-[78vh] rounded-3xl overflow-hidden bg-gradient-to-b ${currentReel.theme_gradient} border border-neutral-700/60 shadow-2xl select-none flex flex-col justify-between`}
+          className={`relative w-full aspect-[9/16] max-h-[78vh] rounded-3xl overflow-hidden bg-black border border-neutral-700/60 shadow-2xl select-none flex flex-col justify-between cursor-pointer`}
         >
+          {/* Real HTML5 Streaming Video Player */}
+          {currentReel.video_url && (
+            <video
+              ref={videoRef}
+              key={currentReel.video_url}
+              src={currentReel.video_url}
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              onTimeUpdate={handleTimeUpdate}
+              className="absolute inset-0 w-full h-full object-cover z-0"
+            />
+          )}
+
+          {/* Fallback Animated Gradient if video is loading */}
+          <div className={`absolute inset-0 bg-gradient-to-b ${currentReel.theme_gradient} opacity-40 mix-blend-multiply z-0 pointer-events-none`} />
+
+          {/* Instagram Cinematic Shadow Overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/90 z-10 pointer-events-none" />
+
+          {/* Play/Pause Central Flash Indicator */}
+          {showPlayOverlay && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none animate-in zoom-in-75 fade-out duration-300">
+              <div className="p-5 rounded-full bg-black/60 border border-white/20 text-white backdrop-blur-md">
+                {isPlaying ? <Play className="w-12 h-12 fill-white text-white" /> : <Pause className="w-12 h-12 fill-white text-white" />}
+              </div>
+            </div>
+          )}
+
           {/* Top Progress Bar & Counter */}
-          <div className="absolute top-0 left-0 right-0 z-30 p-3 pt-2 bg-gradient-to-b from-black/80 via-black/30 to-transparent">
+          <div className="absolute top-0 left-0 right-0 z-30 p-3 pt-2">
             {/* Story/Reel segment bar */}
             <div className="w-full flex space-x-1 mb-2">
               {reels.map((_, idx) => (
@@ -830,9 +806,12 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
             </div>
 
             <div className="flex items-center justify-between text-xs text-white">
-              <span className="font-black tracking-wider text-[11px] uppercase bg-black/50 px-2.5 py-0.5 rounded-full border border-white/20 backdrop-blur-md">
-                ClearSky AI Reel
-              </span>
+              <div className="flex items-center space-x-1.5">
+                <span className="font-black tracking-wider text-[11px] uppercase bg-black/60 px-2.5 py-0.5 rounded-full border border-white/20 backdrop-blur-md flex items-center space-x-1">
+                  <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span>{isPlaying ? 'Playing HD' : 'Paused'}</span>
+                </span>
+              </div>
               {currentReel.aqi_badge && (
                 <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-rose-600/90 text-white border border-rose-400/40 shadow-sm animate-pulse">
                   {currentReel.aqi_badge}
@@ -841,9 +820,6 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
             </div>
           </div>
 
-          {/* Interactive Visual Backdrop (Animated Scene) */}
-          {renderVisualScene(currentReel.visual_type)}
-
           {/* Double tap heart burst animation */}
           {showHeartBurst && (
             <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none animate-in zoom-in-50 duration-200">
@@ -851,15 +827,12 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
             </div>
           )}
 
-          {/* Middle: Title & Impact Hook */}
-          <div className="relative z-20 px-6 pt-16 pointer-events-none">
-            <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-md">
+          {/* Top Middle: Dynamic Visual Badge & Title */}
+          <div className="relative z-20 px-5 pt-16 pointer-events-none space-y-2">
+            {renderVisualBadge(currentReel.visual_type)}
+            <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               {currentReel.title}
             </h2>
-            <div className="mt-2.5 inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-black/60 border border-white/15 backdrop-blur-md text-[11px] text-teal-300 font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
-              <span>{currentReel.key_takeaway}</span>
-            </div>
           </div>
 
           {/* Instagram Action Sidebar (Right side) */}
@@ -872,7 +845,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               <div className={`p-3 rounded-full backdrop-blur-md transition ${
                 currentReel.is_liked 
                   ? 'bg-rose-500/30 text-rose-500 border border-rose-500/50' 
-                  : 'bg-black/40 text-white hover:bg-black/60 border border-white/20'
+                  : 'bg-black/50 text-white hover:bg-black/70 border border-white/20'
               }`}>
                 <Heart className={`w-6 h-6 transition ${currentReel.is_liked ? 'fill-rose-500 text-rose-500' : ''}`} />
               </div>
@@ -886,7 +859,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               onClick={(e) => { e.stopPropagation(); setIsCommentsOpen(true); }}
               className="flex flex-col items-center group transition active:scale-75"
             >
-              <div className="p-3 rounded-full bg-black/40 text-white hover:bg-black/60 border border-white/20 backdrop-blur-md">
+              <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
                 <MessageCircle className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-white mt-1 drop-shadow">
@@ -902,7 +875,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               <div className={`p-3 rounded-full backdrop-blur-md transition ${
                 currentReel.is_saved 
                   ? 'bg-amber-500/30 text-amber-400 border border-amber-500/50' 
-                  : 'bg-black/40 text-white hover:bg-black/60 border border-white/20'
+                  : 'bg-black/50 text-white hover:bg-black/70 border border-white/20'
               }`}>
                 <Bookmark className={`w-6 h-6 transition ${currentReel.is_saved ? 'fill-amber-400 text-amber-400' : ''}`} />
               </div>
@@ -914,15 +887,28 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               onClick={(e) => { e.stopPropagation(); handleShare(); }}
               className="flex flex-col items-center group transition active:scale-75"
             >
-              <div className="p-3 rounded-full bg-black/40 text-white hover:bg-black/60 border border-white/20 backdrop-blur-md">
+              <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
                 <Share2 className="w-6 h-6" />
               </div>
               <span className="text-[10px] font-bold text-white mt-1 drop-shadow">Share</span>
             </button>
 
+            {/* Video Sound / Mute Toggle Button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsMuted(prev => !prev); }}
+              className="flex flex-col items-center group transition active:scale-75"
+            >
+              <div className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 border border-white/20 backdrop-blur-md">
+                {isMuted ? <VolumeX className="w-6 h-6 text-neutral-400" /> : <Volume2 className="w-6 h-6 text-teal-400" />}
+              </div>
+              <span className="text-[10px] font-bold text-white mt-1 drop-shadow">
+                {isMuted ? 'Muted' : 'Audio'}
+              </span>
+            </button>
+
             {/* Spinning Music Disc Icon */}
-            <div className="relative pt-2">
-              <div className="w-10 h-10 rounded-full border-2 border-white/30 bg-neutral-900 overflow-hidden flex items-center justify-center animate-spin [animation-duration:4s]">
+            <div className="relative pt-1">
+              <div className={`w-10 h-10 rounded-full border-2 border-white/40 bg-neutral-900 overflow-hidden flex items-center justify-center ${isPlaying ? 'animate-spin [animation-duration:4s]' : ''}`}>
                 <img 
                   src={currentReel.creator_avatar} 
                   alt="vinyl" 
@@ -934,14 +920,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           </div>
 
           {/* Bottom Overlay: Creator info, caption, tags, CTA */}
-          <div className="relative z-20 p-5 pt-8 bg-gradient-to-t from-black via-black/80 to-transparent space-y-3">
+          <div className="relative z-20 p-5 pt-6 space-y-2.5">
+            {/* Key takeaway pill */}
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-black/70 border border-white/20 backdrop-blur-md text-[11px] text-teal-300 font-bold max-w-[85%]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <span className="truncate">{currentReel.key_takeaway}</span>
+            </div>
+
             {/* Creator Row */}
             <div className="flex items-center justify-between pr-14">
               <div className="flex items-center space-x-2.5">
                 <img 
                   src={currentReel.creator_avatar} 
                   alt={currentReel.creator_name} 
-                  className="w-9 h-9 rounded-full object-cover border-2 border-teal-400"
+                  className="w-9 h-9 rounded-full object-cover border-2 border-teal-400 shadow-md"
                 />
                 <div>
                   <div className="flex items-center space-x-1.5">
@@ -952,7 +944,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
                       <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 fill-teal-400" />
                     )}
                   </div>
-                  <span className="text-[11px] text-neutral-300">
+                  <span className="text-[11px] text-neutral-300 drop-shadow">
                     {currentReel.creator_handle}
                   </span>
                 </div>
@@ -961,7 +953,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
               {/* Follow Button */}
               <button
                 onClick={(e) => { e.stopPropagation(); toggleFollow(currentReel.creator_handle); }}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition ${
+                className={`px-3 py-1 rounded-full text-xs font-bold transition shadow-md ${
                   followingMap[currentReel.creator_handle]
                     ? 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                     : 'bg-white text-neutral-950 hover:bg-neutral-200'
@@ -972,14 +964,14 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
             </div>
 
             {/* Caption */}
-            <p className="text-xs text-neutral-100 leading-relaxed line-clamp-3 pr-14 drop-shadow">
+            <p className="text-xs text-neutral-100 leading-relaxed line-clamp-3 pr-14 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
               {currentReel.caption}
             </p>
 
             {/* Hashtags */}
             <div className="flex flex-wrap gap-1.5 pr-14">
               {currentReel.tags.map((tag, i) => (
-                <span key={i} className="text-[11px] font-bold text-teal-300 hover:underline cursor-pointer">
+                <span key={i} className="text-[11px] font-bold text-teal-300 hover:underline cursor-pointer drop-shadow">
                   {tag}
                 </span>
               ))}
@@ -987,7 +979,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
 
             {/* Call to Action Bar */}
             {currentReel.action_cta && (
-              <div className="pt-1 pr-14">
+              <div className="pt-0.5 pr-14">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -995,7 +987,7 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
                       onNavigateTab(currentReel.action_cta.tab);
                     }
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/40 text-xs font-bold backdrop-blur-md transition group"
+                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-teal-500/30 hover:bg-teal-500/40 text-teal-200 border border-teal-500/50 text-xs font-bold backdrop-blur-md transition group shadow-lg"
                 >
                   <span className="flex items-center space-x-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-teal-400" />
@@ -1007,11 +999,19 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
             )}
 
             {/* Audio Scrolling Marquee */}
-            <div className="flex items-center space-x-2 text-[11px] text-neutral-400 overflow-hidden pr-14">
+            <div className="flex items-center space-x-2 text-[11px] text-neutral-300 overflow-hidden pr-14 pt-0.5">
               <Music2 className="w-3 h-3 text-teal-400 shrink-0" />
               <div className="whitespace-nowrap animate-marquee">
                 <span>{currentReel.audio_title} • {currentReel.audio_artist}</span>
               </div>
+            </div>
+
+            {/* Real Video Progress Bar */}
+            <div className="w-full bg-white/20 h-1 rounded-full overflow-hidden mt-1">
+              <div 
+                className="bg-teal-400 h-full transition-all duration-100" 
+                style={{ width: `${videoProgress}%` }}
+              />
             </div>
           </div>
         </div>
@@ -1099,8 +1099,8 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
           <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <h3 className="font-extrabold text-base text-white flex items-center space-x-2">
-                <Sparkles className="w-5 h-5 text-teal-400" />
-                <span>Create Community Eco Reel</span>
+                <Video className="w-5 h-5 text-teal-400" />
+                <span>Post Community Eco Reel</span>
               </h3>
               <button 
                 onClick={() => setIsCreateModalOpen(false)}
@@ -1121,6 +1121,20 @@ export const ReelsView: React.FC<ReelsViewProps> = ({ onNavigateTab }) => {
                   placeholder="e.g. 3 Quick Checks Before Letting Kids Play Outside"
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-neutral-300 font-bold mb-1">Select Video Clip</label>
+                <select
+                  value={newVideoUrl}
+                  onChange={(e) => setNewVideoUrl(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
+                >
+                  <option value="/videos/outdoor-jogging.mp4">🏃‍♂️ Outdoor Jogging & Smog Morning</option>
+                  <option value="/videos/traffic-smog.mp4">🚗 City Traffic & Vehicle Exhaust</option>
+                  <option value="/videos/nature-clean-air.mp4">🌿 NASA Clean Air Blooming Nature</option>
+                  <option value="/videos/fluid-diffusion.mp4">🔬 Micro-Particulate Aerosol Flow</option>
+                </select>
               </div>
 
               <div>

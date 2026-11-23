@@ -291,6 +291,7 @@ export interface Reel {
   views_count: number;
   is_liked: boolean;
   is_saved: boolean;
+  video_url?: string;
   theme_gradient: string;
   visual_type: string;
   key_takeaway: string;
