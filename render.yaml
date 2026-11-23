@@ -18,4 +18,4 @@ services:
       - key: AQI_CACHE_TTL_SECONDS
         value: "900"
       - key: BACKEND_CORS_ORIGINS
-        value: '["*"]'
+        value: '["https://clearsky-ai-theta.vercel.app","https://frontend-ruddy-seven-11.vercel.app","http://localhost:5173"]'

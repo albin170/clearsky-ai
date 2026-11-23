@@ -1,22 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { AirQualityResponse } from '../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { AirQualityResponse } from '../types';
 import { api } from '../services/api';
-
-interface LocationContextType {
-  currentCity: string;
-  currentLat: number;
-  currentLon: number;
-  airQuality: AirQualityResponse | null;
-  isLoading: boolean;
-  error: string | null;
-  aqiStandard: 'in' | 'us';
-  setAqiStandard: (std: 'in' | 'us') => void;
-  setLocation: (city: string, lat: number, lon: number) => void;
-  detectGeolocation: () => void;
-  refreshData: () => Promise<void>;
-}
-
-const LocationContext = createContext<LocationContextType | undefined>(undefined);
+import { LocationContext } from './hooks';
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentCity, setCurrentCity] = useState<string>('Delhi NCR');
@@ -33,18 +18,38 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const data = await api.getAirQuality(lat, lon, city);
       setAirQuality(data);
-    } catch (err: any) {
-      setError(err.message || 'Could not load air quality data');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not load air quality data';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchAQI(currentLat, currentLon, currentCity);
-  }, [currentLat, currentLon, currentCity, fetchAQI]);
+    let cancelled = false;
+    api
+      .getAirQuality(currentLat, currentLon, currentCity)
+      .then((data) => {
+        if (!cancelled) {
+          setAirQuality(data);
+          setError(null);
+          setIsLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not load air quality data');
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLat, currentLon, currentCity]);
 
   const setLocation = (city: string, lat: number, lon: number) => {
+    setIsLoading(true);
     setCurrentCity(city);
     setCurrentLat(lat);
     setCurrentLon(lon);
@@ -62,7 +67,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         () => {
           setError('Location access denied. Displaying Delhi baseline.');
           setIsLoading(false);
-        }
+        },
       );
     } else {
       setError('Geolocation not supported by browser.');
@@ -92,10 +97,4 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       {children}
     </LocationContext.Provider>
   );
-};
-
-export const useLocation = () => {
-  const context = useContext(LocationContext);
-  if (!context) throw new Error('useLocation must be used within a LocationProvider');
-  return context;
 };

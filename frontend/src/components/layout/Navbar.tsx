@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  Wind, MapPin, Navigation, Globe, Sun, Moon, 
-  Contrast, ShieldAlert, User as UserIcon, LogOut, Check
+import {
+  Wind,
+  MapPin,
+  Navigation,
+  Globe,
+  Sun,
+  Moon,
+  Contrast,
+  ShieldAlert,
+  User as UserIcon,
+  LogOut,
+  Check,
 } from 'lucide-react';
-import { useLocation } from '../../context/LocationContext';
-import { useLanguage } from '../../context/LanguageContext';
-import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { useLocation, useLanguage, useTheme, useAuth } from '../../context/hooks';
 import { EmergencyModal } from '../emergency/EmergencyModal';
 
 const PRESET_CITIES = [
@@ -27,7 +33,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   const { currentCity, airQuality, aqiStandard, setAqiStandard, setLocation, detectGeolocation } = useLocation();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
@@ -39,35 +45,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-subtle bg-primary/95 backdrop-blur-md px-4 lg:px-8 py-3 transition-colors duration-200" style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-subtle)' }}>
+      <header
+        className="sticky top-0 z-40 w-full border-b border-subtle bg-primary/95 backdrop-blur-md px-4 lg:px-8 py-3 transition-colors duration-200"
+        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-subtle)' }}
+      >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          
           {/* Logo & Brand */}
           <div className="flex items-center space-x-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-lg shadow-teal-900/30">
-              <Wind className="w-6 h-6 animate-pulse" />
+              <Wind className="w-6 h-6 animate-pulse" aria-hidden="true" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <span className="font-extrabold text-xl tracking-tight text-white">ClearSky</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">AI</span>
+                <span className="px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                  AI
+                </span>
               </div>
-              <p className="text-[11px] text-neutral-400 hidden sm:block">Urban Smog & Environmental Intelligence</p>
+              <p className="text-[11px] text-neutral-400 hidden sm:block">Urban Smog &amp; Environmental Intelligence</p>
             </div>
           </div>
 
           {/* Location Selector */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+              aria-expanded={isCityDropdownOpen}
+              aria-haspopup="listbox"
+              aria-label={`Select monitoring city, currently ${currentCity}`}
               className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700/60 text-sm font-medium text-neutral-200 transition"
             >
-              <MapPin className="w-4 h-4 text-teal-400" />
+              <MapPin className="w-4 h-4 text-teal-400" aria-hidden="true" />
               <span className="max-w-[120px] sm:max-w-[180px] truncate">{currentCity}</span>
               {aqi !== undefined && (
                 <span
                   className="px-2 py-0.5 text-xs font-black rounded-md text-white ml-1"
                   style={{ backgroundColor: aqiColor || '#10b981' }}
+                  title={aqiCategory ? `AQI ${aqi} (${aqiCategory})` : `AQI ${aqi}`}
                 >
                   {aqi}
                 </span>
@@ -75,13 +90,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
             </button>
 
             {isCityDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-64 rounded-xl bg-neutral-900 border border-neutral-700 shadow-2xl p-2 z-50">
+              <div
+                role="listbox"
+                aria-label="Monitoring Hubs"
+                className="absolute left-0 mt-2 w-64 rounded-xl bg-neutral-900 border border-neutral-700 shadow-2xl p-2 z-50"
+              >
                 <div className="text-[11px] uppercase tracking-wider font-bold text-neutral-400 px-3 py-1">
                   Select Monitoring Hub
                 </div>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
                   {PRESET_CITIES.map((c) => (
                     <button
+                      type="button"
+                      role="option"
+                      aria-selected={currentCity === c.name}
                       key={c.name}
                       onClick={() => {
                         setLocation(c.name, c.lat, c.lon);
@@ -90,19 +112,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                       className="w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-neutral-800 text-neutral-200 flex items-center justify-between transition"
                     >
                       <span>{c.name}</span>
-                      {currentCity === c.name && <Check className="w-4 h-4 text-teal-400" />}
+                      {currentCity === c.name && <Check className="w-4 h-4 text-teal-400" aria-hidden="true" />}
                     </button>
                   ))}
                 </div>
                 <div className="border-t border-neutral-800 mt-2 pt-2">
                   <button
+                    type="button"
                     onClick={() => {
                       detectGeolocation();
                       setIsCityDropdownOpen(false);
                     }}
                     className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 text-xs font-semibold transition"
                   >
-                    <Navigation className="w-3.5 h-3.5" />
+                    <Navigation className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Detect My GPS Location</span>
                   </button>
                 </div>
@@ -113,21 +136,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
           {/* Action controls */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Standard Switcher: Indian NAQI vs US EPA */}
-            <div className="hidden md:flex items-center rounded-xl bg-neutral-900 p-0.5 border border-neutral-700/60 text-xs">
+            <div
+              role="group"
+              aria-label="AQI Standard Selector"
+              className="hidden md:flex items-center rounded-xl bg-neutral-900 p-0.5 border border-neutral-700/60 text-xs"
+            >
               <button
+                type="button"
                 onClick={() => setAqiStandard('in')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
-                  aqiStandard === 'in' ? 'bg-teal-600 text-white shadow' : 'text-neutral-400 hover:text-white'
-                }`}
+                aria-pressed={aqiStandard === 'in'}
+                className={`px-2.5 py-1 rounded-lg font-bold transition ${aqiStandard === 'in' ? 'bg-teal-600 text-white shadow' : 'text-neutral-400 hover:text-white'
+                  }`}
                 title="Indian National Air Quality Index (CPCB standard)"
               >
                 CPCB NAQI
               </button>
               <button
+                type="button"
                 onClick={() => setAqiStandard('us')}
-                className={`px-2.5 py-1 rounded-lg font-bold transition ${
-                  aqiStandard === 'us' ? 'bg-teal-600 text-white shadow' : 'text-neutral-400 hover:text-white'
-                }`}
+                aria-pressed={aqiStandard === 'us'}
+                className={`px-2.5 py-1 rounded-lg font-bold transition ${aqiStandard === 'us' ? 'bg-teal-600 text-white shadow' : 'text-neutral-400 hover:text-white'
+                  }`}
                 title="United States EPA Air Quality Index"
               >
                 US EPA
@@ -136,34 +165,39 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
 
             {/* Emergency Smog Mode Button */}
             <button
+              type="button"
               onClick={() => setIsEmergencyOpen(true)}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-black tracking-wider transition animate-pulse"
               title="Activate Emergency Winter Smog Defense Interface"
+              aria-label="Activate Emergency Smog Defense Mode"
             >
-              <ShieldAlert className="w-4 h-4 text-red-400" />
+              <ShieldAlert className="w-4 h-4 text-red-400" aria-hidden="true" />
               <span className="hidden sm:inline">SMOG DEFENSE</span>
             </button>
 
             {/* Language Switcher (EN / ML) */}
             <button
+              type="button"
               onClick={() => setLanguage(language === 'en' ? 'ml' : 'en')}
               className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/60 text-xs font-bold text-neutral-200 transition"
               title="Toggle English / Malayalam (മലയാളം)"
+              aria-label={language === 'en' ? 'Switch language to Malayalam' : 'Switch language to English'}
             >
-              <Globe className="w-3.5 h-3.5 text-teal-400" />
+              <Globe className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
               <span>{language === 'en' ? 'മലയാളം' : 'EN'}</span>
             </button>
 
             {/* Theme Toggle (Dark / Light / High Contrast) */}
             <button
+              type="button"
               onClick={toggleTheme}
               className="p-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700/60 text-neutral-300 transition"
               title={`Switch Theme (Current: ${theme})`}
-              aria-label="Toggle Theme"
+              aria-label={`Toggle Theme (Current: ${theme})`}
             >
-              {theme === 'dark' && <Sun className="w-4 h-4 text-amber-400" />}
-              {theme === 'light' && <Contrast className="w-4 h-4 text-blue-400" />}
-              {theme === 'contrast' && <Moon className="w-4 h-4 text-teal-300" />}
+              {theme === 'dark' && <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />}
+              {theme === 'light' && <Contrast className="w-4 h-4 text-blue-400" aria-hidden="true" />}
+              {theme === 'contrast' && <Moon className="w-4 h-4 text-teal-300" aria-hidden="true" />}
             </button>
 
             {/* Auth / Profile button */}
@@ -174,23 +208,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                   <span className="text-[10px] text-teal-400 uppercase font-mono">{user.role.replace('_', ' ')}</span>
                 </div>
                 <button
+                  type="button"
                   onClick={logout}
                   className="p-2 rounded-xl bg-neutral-900 hover:bg-red-950/60 hover:text-red-400 border border-neutral-700/60 text-neutral-300 transition"
                   title="Sign Out"
+                  aria-label="Sign Out"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={onOpenAuth}
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 font-bold text-white text-xs shadow-md shadow-teal-900/30 transition"
               >
-                <UserIcon className="w-3.5 h-3.5" />
+                <UserIcon className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Sign In</span>
               </button>
             )}
-
           </div>
         </div>
       </header>
@@ -198,5 +234,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
       {/* Emergency Mode Modal */}
       <EmergencyModal isOpen={isEmergencyOpen} onClose={() => setIsEmergencyOpen(false)} />
     </>
+  );
+};
   );
 };

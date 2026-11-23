@@ -7,8 +7,8 @@ router = APIRouter(prefix="/prediction", tags=["Smart Pollution Prediction"])
 
 @router.get("/forecast", response_model=PredictionResponse)
 async def get_pollution_prediction(
-    lat: float = Query(28.6139, description="Latitude"),
-    lon: float = Query(77.2090, description="Longitude"),
+    lat: float = Query(28.6139, ge=-90.0, le=90.0, description="Latitude"),
+    lon: float = Query(77.2090, ge=-180.0, le=180.0, description="Longitude"),
     city: str = Query("Delhi", description="City name")
 ):
     aqi_data = await fetch_air_quality_and_weather(lat, lon, city)

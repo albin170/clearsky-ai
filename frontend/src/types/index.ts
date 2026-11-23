@@ -3,11 +3,39 @@ export interface User {
   email: string;
   full_name: string;
   role: 'super_admin' | 'moderator' | 'community_manager' | 'standard_user';
+  is_active?: boolean;
   preferred_language: string;
   default_city?: string;
   default_lat?: number;
   default_lon?: number;
   created_at: string;
+}
+
+export interface UserRegisterInput {
+  email: string;
+  password: string;
+  full_name: string;
+  preferred_language?: string;
+  default_city?: string;
+  default_lat?: number;
+  default_lon?: number;
+}
+
+export interface UserLoginInput {
+  email: string;
+  password: string;
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type?: string;
+  user: User;
+}
+
+export interface DetailResponse {
+  detail: string;
+  status?: string;
+  points_awarded?: number;
 }
 
 export interface PollutantDetail {
@@ -302,3 +330,171 @@ export interface Reel {
   };
   comments: ReelComment[];
 }
+
+export interface ReelLikeResponse {
+  id: string;
+  is_liked: boolean;
+  likes_count: number;
+}
+
+export interface ReelSaveResponse {
+  id: string;
+  is_saved: boolean;
+}
+
+export interface ReelCommentResponse {
+  detail: string;
+  comment: ReelComment;
+  comments_count: number;
+}
+
+export interface LocationComparisonResponse {
+  location_1: CurrentAQI;
+  location_2: CurrentAQI;
+  comparison: {
+    aqi_difference: number;
+    cleaner_location: string;
+    pm25_difference: number;
+    summary: string;
+  };
+}
+
+export interface AssistantStructuredAdvice {
+  ground_aqi?: number;
+  ground_category?: string;
+  category?: string;
+  pm25?: number;
+  pm25_concentration?: number;
+  actionable_routine?: Array<{
+    period: string;
+    recommendation: string;
+    reason: string;
+  }>;
+}
+
+export interface AssistantChatResponse {
+  conversation_id: number;
+  role: string;
+  content: string;
+  language: string;
+  structured_advice?: AssistantStructuredAdvice;
+  sources_cited: string[];
+  disclaimer: string;
+}
+
+export interface DailyBriefingResponse {
+  date: string;
+  city: string;
+  aqi: number;
+  category: string;
+  briefing: string;
+  key_action: string;
+  language: string;
+}
+
+export interface FamilyMemberCreateInput {
+  name: string;
+  relation: string;
+  age_group: string;
+  sensitivity_profile: string;
+  activity_preferences?: string;
+}
+
+export interface RoomAssessmentCreateInput {
+  room_name: string;
+  room_size_sqft: number;
+  occupants: number;
+  ventilation_type: string;
+  has_purifier: boolean;
+  purifier_filter_type: string;
+  cooking_smoke_exposure: string;
+  sensor_pm25?: number;
+}
+
+export interface RoutineCreateInput {
+  commute_mode: string;
+  daily_distance_km: number;
+  schedule_type: string;
+  waste_habits?: string;
+}
+
+export interface CommunityCreateInput {
+  name: string;
+  city: string;
+  description: string;
+  category: string;
+}
+
+export interface CommunityReportCreateInput {
+  community_id?: number;
+  title: string;
+  report_type: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  is_anonymous: boolean;
+}
+
+export interface ImpactLogCreateInput {
+  activity_type: string;
+  units_count: number;
+}
+
+export interface ImpactLogResponse {
+  detail: string;
+  co2_saved_kg: number;
+  pm25_avoided_g: number;
+  fuel_saved_liters: number;
+  money_saved_estimate: number;
+}
+
+export interface EducationalTopic {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  content: string;
+  source: string;
+}
+
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+}
+
+export interface NotificationPreferences {
+  high_aqi_alert: boolean;
+  aqi_threshold: number;
+  daily_morning_briefing: boolean;
+  purifier_filter_reminders: boolean;
+  community_challenge_reminders: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  preferred_channel?: string;
+}
+
+export interface SystemHealthResponse {
+  status: string;
+  version: string;
+  environment: string;
+  database: string;
+  open_meteo_api: string;
+  gemini_api_configured: boolean;
+  active_users_count: number;
+  total_communities: number;
+  total_impact_logs: number;
+  cached_locations: number;
+}
+
+export interface AuditLogItem {
+  id: number;
+  user_id: number | null;
+  action: string;
+  details: string;
+  timestamp: string;
+}
+

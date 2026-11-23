@@ -1,14 +1,49 @@
-import { 
-  AirQualityResponse, User, FamilyMember, FamilyDailyPlanResponse,
-  RoomAssessment, VentilationWindowAdvice, RoutineOut, PredictionResponse,
-  Community, CommunityChallenge, CommunityReport, ImpactSummary,
-  WhatIfResponse, CleanRouteResponse, NotificationAlert, Reel, ReelComment
+import type {
+  AirQualityResponse,
+  User,
+  UserRegisterInput,
+  UserLoginInput,
+  AuthTokenResponse,
+  DetailResponse,
+  FamilyMember,
+  FamilyMemberCreateInput,
+  FamilyDailyPlanResponse,
+  RoomAssessment,
+  RoomAssessmentCreateInput,
+  VentilationWindowAdvice,
+  RoutineOut,
+  RoutineCreateInput,
+  PredictionResponse,
+  Community,
+  CommunityCreateInput,
+  CommunityChallenge,
+  CommunityReport,
+  CommunityReportCreateInput,
+  ImpactSummary,
+  ImpactLogCreateInput,
+  ImpactLogResponse,
+  WhatIfResponse,
+  CleanRouteResponse,
+  NotificationAlert,
+  NotificationPreferences,
+  LocationComparisonResponse,
+  AssistantChatResponse,
+  DailyBriefingResponse,
+  EducationalTopic,
+  QuizQuestion,
+  SystemHealthResponse,
+  AuditLogItem,
+  Reel,
+  ReelLikeResponse,
+  ReelSaveResponse,
+  ReelCommentResponse,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const envMeta = import.meta as unknown as { env?: Record<string, string | undefined> };
+const API_BASE = envMeta.env?.VITE_API_BASE_URL || '/api/v1';
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('clearsky_token');
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('clearsky_token') : null;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -18,69 +53,96 @@ function getAuthHeaders(): HeadersInit {
   return headers;
 }
 
+async function handleResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
+  if (!res.ok) {
+    let message = fallbackMessage;
+    try {
+      const errBody = (await res.json()) as { detail?: string };
+      if (errBody && typeof errBody.detail === 'string') {
+        message = errBody.detail;
+      }
+    } catch {
+      // Keep fallback message when response body is not JSON
+    }
+    throw new Error(message);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const api = {
   // Auth
-  async register(data: any): Promise<{ access_token: string; user: User }> {
+  async register(data: UserRegisterInput): Promise<AuthTokenResponse> {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Registration failed');
-    }
-    return res.json();
+    return handleResponse<AuthTokenResponse>(res, 'Registration failed');
   },
 
-  async login(data: any): Promise<{ access_token: string; user: User }> {
+  async login(data: UserLoginInput): Promise<AuthTokenResponse> {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Login failed');
-    }
-    return res.json();
+    return handleResponse<AuthTokenResponse>(res, 'Login failed');
   },
 
   async getMe(): Promise<User> {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Not authenticated');
-    return res.json();
+    return handleResponse<User>(res, 'Not authenticated');
   },
 
-  async deleteAccount(): Promise<any> {
+  async deleteAccount(): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/auth/delete-account`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to delete account');
   },
 
   // Air Quality
   async getAirQuality(lat: number, lon: number, city: string): Promise<AirQualityResponse> {
-    const res = await fetch(`${API_BASE}/air-quality/current?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`);
-    if (!res.ok) throw new Error('Failed to fetch air quality');
-    return res.json();
+    const res = await fetch(
+      `${API_BASE}/air-quality/current?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`,
+    );
+    return handleResponse<AirQualityResponse>(res, 'Failed to fetch air quality');
   },
 
   async getPresetCities(): Promise<Record<string, { name: string; lat: number; lon: number }>> {
     const res = await fetch(`${API_BASE}/air-quality/presets`);
-    return res.json();
+    return handleResponse<Record<string, { name: string; lat: number; lon: number }>>(
+      res,
+      'Failed to load preset cities',
+    );
   },
 
-  async compareLocations(lat1: number, lon1: number, city1: string, lat2: number, lon2: number, city2: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/air-quality/compare?lat1=${lat1}&lon1=${lon1}&city1=${encodeURIComponent(city1)}&lat2=${lat2}&lon2=${lon2}&city2=${encodeURIComponent(city2)}`);
-    return res.json();
+  async compareLocations(
+    lat1: number,
+    lon1: number,
+    city1: string,
+    lat2: number,
+    lon2: number,
+    city2: string,
+  ): Promise<LocationComparisonResponse> {
+    const res = await fetch(
+      `${API_BASE}/air-quality/compare?lat1=${lat1}&lon1=${lon1}&city1=${encodeURIComponent(city1)}&lat2=${lat2}&lon2=${lon2}&city2=${encodeURIComponent(city2)}`,
+    );
+    return handleResponse<LocationComparisonResponse>(res, 'Failed to compare locations');
   },
 
   // Assistant
-  async sendChatMessage(message: string, conversationId?: number, language: string = 'en', lat?: number, lon?: number, city?: string): Promise<any> {
+  async sendChatMessage(
+    message: string,
+    conversationId?: number,
+    language: string = 'en',
+    lat?: number,
+    lon?: number,
+    city?: string,
+  ): Promise<AssistantChatResponse> {
     const res = await fetch(`${API_BASE}/assistant/chat`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -93,179 +155,189 @@ export const api = {
         location_name: city,
       }),
     });
-    if (!res.ok) throw new Error('Assistant communication failed');
-    return res.json();
+    return handleResponse<AssistantChatResponse>(res, 'Assistant communication failed');
   },
 
   async getSuggestedQuestions(lang: string = 'en'): Promise<{ language: string; questions: string[] }> {
-    const res = await fetch(`${API_BASE}/assistant/suggested-questions?lang=${lang}`);
-    return res.json();
+    const res = await fetch(`${API_BASE}/assistant/suggested-questions?lang=${encodeURIComponent(lang)}`);
+    return handleResponse<{ language: string; questions: string[] }>(
+      res,
+      'Failed to load suggested questions',
+    );
   },
 
-  async getDailyBriefing(lat: number, lon: number, city: string, lang: string = 'en'): Promise<any> {
-    const res = await fetch(`${API_BASE}/assistant/daily-briefing?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}&lang=${lang}`);
-    return res.json();
+  async getDailyBriefing(
+    lat: number,
+    lon: number,
+    city: string,
+    lang: string = 'en',
+  ): Promise<DailyBriefingResponse> {
+    const res = await fetch(
+      `${API_BASE}/assistant/daily-briefing?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}&lang=${encodeURIComponent(lang)}`,
+    );
+    return handleResponse<DailyBriefingResponse>(res, 'Failed to load daily briefing');
   },
 
   // Family
   async getFamilyMembers(): Promise<FamilyMember[]> {
     const res = await fetch(`${API_BASE}/family/members`, { headers: getAuthHeaders() });
     if (!res.ok) return [];
-    return res.json();
+    return res.json() as Promise<FamilyMember[]>;
   },
 
-  async addFamilyMember(data: any): Promise<FamilyMember> {
+  async addFamilyMember(data: FamilyMemberCreateInput): Promise<FamilyMember> {
     const res = await fetch(`${API_BASE}/family/members`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to add family member');
-    return res.json();
+    return handleResponse<FamilyMember>(res, 'Failed to add family member');
   },
 
-  async deleteFamilyMember(id: number): Promise<any> {
+  async deleteFamilyMember(id: number): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/family/members/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to delete family member');
   },
 
   async getFamilyDailyPlan(lat: number, lon: number, city: string): Promise<FamilyDailyPlanResponse> {
-    const res = await fetch(`${API_BASE}/family/daily-plan?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to generate daily family plan');
-    return res.json();
+    const res = await fetch(
+      `${API_BASE}/family/daily-plan?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`,
+      { headers: getAuthHeaders() },
+    );
+    return handleResponse<FamilyDailyPlanResponse>(res, 'Failed to generate daily family plan');
   },
 
   // Indoor
   async getRoomAssessments(): Promise<RoomAssessment[]> {
     const res = await fetch(`${API_BASE}/indoor/assessments`, { headers: getAuthHeaders() });
     if (!res.ok) return [];
-    return res.json();
+    return res.json() as Promise<RoomAssessment[]>;
   },
 
-  async createRoomAssessment(data: any): Promise<RoomAssessment> {
+  async createRoomAssessment(data: RoomAssessmentCreateInput): Promise<RoomAssessment> {
     const res = await fetch(`${API_BASE}/indoor/assessments`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to analyze room');
-    return res.json();
+    return handleResponse<RoomAssessment>(res, 'Failed to analyze room');
   },
 
-  async deleteRoomAssessment(id: number): Promise<any> {
+  async deleteRoomAssessment(id: number): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/indoor/assessments/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to delete room assessment');
   },
 
   async getVentilationAdvice(roomSize: number, outdoorAqi: number): Promise<VentilationWindowAdvice> {
-    const res = await fetch(`${API_BASE}/indoor/ventilation-advice?room_size_sqft=${roomSize}&outdoor_aqi=${outdoorAqi}`);
-    return res.json();
+    const res = await fetch(
+      `${API_BASE}/indoor/ventilation-advice?room_size_sqft=${roomSize}&outdoor_aqi=${outdoorAqi}`,
+    );
+    return handleResponse<VentilationWindowAdvice>(res, 'Failed to fetch ventilation advice');
   },
 
   // Routine
   async getMyRoutine(): Promise<RoutineOut | null> {
     const res = await fetch(`${API_BASE}/routine/my-routine`, { headers: getAuthHeaders() });
     if (!res.ok) return null;
-    return res.json();
+    return res.json() as Promise<RoutineOut | null>;
   },
 
-  async generateRoutine(data: any): Promise<RoutineOut> {
+  async generateRoutine(data: RoutineCreateInput): Promise<RoutineOut> {
     const res = await fetch(`${API_BASE}/routine/generate`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to generate routine');
-    return res.json();
+    return handleResponse<RoutineOut>(res, 'Failed to generate routine');
   },
 
   // Prediction
   async getPrediction(lat: number, lon: number, city: string): Promise<PredictionResponse> {
-    const res = await fetch(`${API_BASE}/prediction/forecast?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`);
-    return res.json();
+    const res = await fetch(
+      `${API_BASE}/prediction/forecast?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`,
+    );
+    return handleResponse<PredictionResponse>(res, 'Failed to load pollution prediction');
   },
 
   // Community
   async getCommunities(): Promise<Community[]> {
     const res = await fetch(`${API_BASE}/community/list`);
-    return res.json();
+    return handleResponse<Community[]>(res, 'Failed to fetch communities');
   },
 
-  async createCommunity(data: any): Promise<Community> {
+  async createCommunity(data: CommunityCreateInput): Promise<Community> {
     const res = await fetch(`${API_BASE}/community/create`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse<Community>(res, 'Failed to create community');
   },
 
-  async joinCommunity(id: number): Promise<any> {
+  async joinCommunity(id: number): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/community/join/${id}`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to join community');
   },
 
   async getChallenges(): Promise<CommunityChallenge[]> {
     const res = await fetch(`${API_BASE}/community/challenges`);
-    return res.json();
+    return handleResponse<CommunityChallenge[]>(res, 'Failed to fetch challenges');
   },
 
-  async joinChallenge(id: number): Promise<any> {
+  async joinChallenge(id: number): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/community/challenges/join`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ challenge_id: id }),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to join challenge');
   },
 
-  async completeChallenge(id: number, notes: string): Promise<any> {
+  async completeChallenge(id: number, notes: string): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/community/challenges/complete`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ challenge_id: id, self_reported_notes: notes }),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to complete challenge');
   },
 
   async getCommunityReports(): Promise<CommunityReport[]> {
     const res = await fetch(`${API_BASE}/community/reports`);
-    return res.json();
+    return handleResponse<CommunityReport[]>(res, 'Failed to load community reports');
   },
 
-  async submitCommunityReport(data: any): Promise<CommunityReport> {
+  async submitCommunityReport(data: CommunityReportCreateInput): Promise<CommunityReport> {
     const res = await fetch(`${API_BASE}/community/reports`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse<CommunityReport>(res, 'Failed to submit community report');
   },
 
   // Impact
   async getImpactSummary(): Promise<ImpactSummary> {
     const res = await fetch(`${API_BASE}/impact/summary`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<ImpactSummary>(res, 'Failed to load impact summary');
   },
 
-  async logImpactActivity(data: any): Promise<any> {
+  async logImpactActivity(data: ImpactLogCreateInput): Promise<ImpactLogResponse> {
     const res = await fetch(`${API_BASE}/impact/log`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse<ImpactLogResponse>(res, 'Failed to log impact activity');
   },
 
   async runWhatIfSimulation(families: number, commuteKm: number, shiftMode: string): Promise<WhatIfResponse> {
@@ -278,11 +350,17 @@ export const api = {
         shift_mode: shiftMode,
       }),
     });
-    return res.json();
+    return handleResponse<WhatIfResponse>(res, 'Failed to run simulation');
   },
 
   // Clean Route
-  async planCleanRoute(startLat: number, startLon: number, endLat: number, endLon: number, mode: string = 'walking'): Promise<CleanRouteResponse> {
+  async planCleanRoute(
+    startLat: number,
+    startLon: number,
+    endLat: number,
+    endLon: number,
+    mode: string = 'walking',
+  ): Promise<CleanRouteResponse> {
     const res = await fetch(`${API_BASE}/routes/clean-route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -294,90 +372,94 @@ export const api = {
         mode,
       }),
     });
-    return res.json();
+    return handleResponse<CleanRouteResponse>(res, 'Failed to plan clean route');
   },
 
   // Education
-  async getEducationalTopics(lang: string = 'en'): Promise<any[]> {
-    const res = await fetch(`${API_BASE}/education/topics?lang=${lang}`);
-    return res.json();
+  async getEducationalTopics(lang: string = 'en'): Promise<EducationalTopic[]> {
+    const res = await fetch(`${API_BASE}/education/topics?lang=${encodeURIComponent(lang)}`);
+    return handleResponse<EducationalTopic[]>(res, 'Failed to load educational topics');
   },
 
-  async getQuiz(): Promise<any[]> {
+  async getQuiz(): Promise<QuizQuestion[]> {
     const res = await fetch(`${API_BASE}/education/quiz`);
-    return res.json();
+    return handleResponse<QuizQuestion[]>(res, 'Failed to load quiz');
   },
 
   async getDailyFacts(): Promise<string[]> {
     const res = await fetch(`${API_BASE}/education/daily-facts`);
-    return res.json();
+    return handleResponse<string[]>(res, 'Failed to load daily facts');
   },
 
   // Notifications
-  async getNotificationPreferences(): Promise<any> {
+  async getNotificationPreferences(): Promise<NotificationPreferences> {
     const res = await fetch(`${API_BASE}/notifications/preferences`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<NotificationPreferences>(res, 'Failed to load notification preferences');
   },
 
-  async updateNotificationPreferences(data: any): Promise<any> {
+  async updateNotificationPreferences(data: Partial<NotificationPreferences>): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/notifications/preferences`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to update notification preferences');
   },
 
   async getActiveAlerts(lat: number, lon: number, city: string): Promise<NotificationAlert[]> {
-    const res = await fetch(`${API_BASE}/notifications/active-alerts?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`, {
-      headers: getAuthHeaders(),
-    });
-    return res.json();
+    const res = await fetch(
+      `${API_BASE}/notifications/active-alerts?lat=${lat}&lon=${lon}&city=${encodeURIComponent(city)}`,
+      { headers: getAuthHeaders() },
+    );
+    return handleResponse<NotificationAlert[]>(res, 'Failed to fetch active alerts');
   },
 
   // Admin
-  async getAdminHealth(): Promise<any> {
+  async getAdminHealth(): Promise<SystemHealthResponse> {
     const res = await fetch(`${API_BASE}/admin/health`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<SystemHealthResponse>(res, 'Failed to load admin health telemetry');
   },
 
   async getAdminUsers(): Promise<User[]> {
     const res = await fetch(`${API_BASE}/admin/users`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<User[]>(res, 'Failed to load admin users');
   },
 
-  async updateAdminUserRole(userId: number, role: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/admin/users/${userId}/role?new_role=${role}`, {
+  async updateAdminUserRole(userId: number, role: string): Promise<DetailResponse> {
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/role?new_role=${encodeURIComponent(role)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to update user role');
   },
 
-  async toggleAdminUserActive(userId: number): Promise<any> {
+  async toggleAdminUserActive(userId: number): Promise<DetailResponse> {
     const res = await fetch(`${API_BASE}/admin/users/${userId}/toggle-status`, {
       method: 'PUT',
       headers: getAuthHeaders(),
     });
-    return res.json();
+    return handleResponse<DetailResponse>(res, 'Failed to toggle user status');
   },
 
   async getAdminReports(): Promise<CommunityReport[]> {
     const res = await fetch(`${API_BASE}/admin/moderation/reports`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<CommunityReport[]>(res, 'Failed to load admin reports');
   },
 
-  async moderateReport(reportId: number, status: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/admin/moderation/reports/${reportId}?status_update=${status}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-    });
-    return res.json();
+  async moderateReport(reportId: number, status: string): Promise<DetailResponse> {
+    const res = await fetch(
+      `${API_BASE}/admin/moderation/reports/${reportId}?status_update=${encodeURIComponent(status)}`,
+      {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+      },
+    );
+    return handleResponse<DetailResponse>(res, 'Failed to moderate report');
   },
 
-  async getAuditLogs(): Promise<any[]> {
+  async getAuditLogs(): Promise<AuditLogItem[]> {
     const res = await fetch(`${API_BASE}/admin/audit-logs`, { headers: getAuthHeaders() });
-    return res.json();
+    return handleResponse<AuditLogItem[]>(res, 'Failed to load audit logs');
   },
 
   // EcoReels - Environmental Shorts
@@ -387,34 +469,35 @@ export const api = {
     if (search) params.append('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
     const res = await fetch(`${API_BASE}/reels${qs}`);
-    if (!res.ok) throw new Error('Failed to load reels');
-    return res.json();
+    return handleResponse<Reel[]>(res, 'Failed to load reels');
   },
 
-  async toggleReelLike(reelId: string): Promise<{ id: string; is_liked: boolean; likes_count: number }> {
+  async toggleReelLike(reelId: string): Promise<ReelLikeResponse> {
     const res = await fetch(`${API_BASE}/reels/${reelId}/like`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to toggle like');
-    return res.json();
+    return handleResponse<ReelLikeResponse>(res, 'Failed to toggle like');
   },
 
-  async toggleReelSave(reelId: string): Promise<{ id: string; is_saved: boolean }> {
+  async toggleReelSave(reelId: string): Promise<ReelSaveResponse> {
     const res = await fetch(`${API_BASE}/reels/${reelId}/save`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to toggle bookmark');
-    return res.json();
+    return handleResponse<ReelSaveResponse>(res, 'Failed to toggle bookmark');
   },
 
-  async addReelComment(reelId: string, text: string, author?: string, handle?: string): Promise<any> {
+  async addReelComment(
+    reelId: string,
+    text: string,
+    author?: string,
+    handle?: string,
+  ): Promise<ReelCommentResponse> {
     const res = await fetch(`${API_BASE}/reels/${reelId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
         author: author || 'EcoCitizen',
-        handle: handle || '@citizen_eco'
+        handle: handle || '@citizen_eco',
       }),
     });
-    if (!res.ok) throw new Error('Failed to post comment');
-    return res.json();
+    return handleResponse<ReelCommentResponse>(res, 'Failed to post comment');
   },
 
   async createReel(data: Partial<Reel>): Promise<Reel> {
@@ -423,7 +506,6 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to create reel');
-    return res.json();
+    return handleResponse<Reel>(res, 'Failed to create reel');
   },
 };

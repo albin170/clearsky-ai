@@ -1,11 +1,20 @@
 import React from 'react';
-import { 
-  LayoutDashboard, Bot, Users, Home, CalendarCheck, 
-  Map, UsersRound, Award, BookOpen, ShieldCheck, Settings,
-  TrendingUp, Clapperboard
+import {
+  LayoutDashboard,
+  Bot,
+  Users,
+  Home,
+  CalendarCheck,
+  Map,
+  UsersRound,
+  Award,
+  BookOpen,
+  ShieldCheck,
+  Settings,
+  TrendingUp,
+  Clapperboard,
 } from 'lucide-react';
-import { useLanguage } from '../../context/LanguageContext';
-import { useAuth } from '../../context/AuthContext';
+import { useLanguage, useAuth } from '../../context/hooks';
 
 interface SidebarProps {
   activeTab: string;
@@ -34,8 +43,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const hasAdminAccess = user && ['super_admin', 'moderator', 'community_manager'].includes(user.role);
 
   return (
-    <aside className="hidden md:flex flex-col w-64 border-r border-neutral-800 bg-neutral-950/70 p-4 space-y-6 shrink-0 min-h-[calc(100vh-65px)]">
-      <div className="space-y-1">
+    <aside
+      aria-label="Sidebar Navigation"
+      className="hidden md:flex flex-col w-64 border-r border-neutral-800 bg-neutral-950/70 p-4 space-y-6 shrink-0 min-h-[calc(100vh-65px)]"
+    >
+      <nav aria-label="Primary Features" className="space-y-1">
         <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-3 py-1">
           Navigation
         </div>
@@ -44,8 +56,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           const isActive = activeTab === item.id;
           return (
             <button
+              type="button"
               key={item.id}
               onClick={() => setActiveTab(item.id)}
+              aria-current={isActive ? 'page' : undefined}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition ${
                 isActive
                   ? 'bg-teal-600/20 text-teal-300 border border-teal-500/30 shadow-sm'
@@ -53,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
               }`}
             >
               <div className="flex items-center space-x-3">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-teal-400' : 'text-neutral-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-teal-400' : 'text-neutral-400'}`} aria-hidden="true" />
                 <span>{item.label}</span>
               </div>
               {item.badge && (
@@ -64,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             </button>
           );
         })}
-      </div>
+      </nav>
 
       <div className="pt-4 border-t border-neutral-800/80 space-y-1">
         <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-3 py-1">
@@ -73,27 +87,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
 
         {hasAdminAccess && (
           <button
+            type="button"
             onClick={() => setActiveTab('admin')}
+            aria-current={activeTab === 'admin' ? 'page' : undefined}
             className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${
               activeTab === 'admin'
                 ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
             }`}
           >
-            <ShieldCheck className={`w-4 h-4 ${activeTab === 'admin' ? 'text-purple-400' : 'text-neutral-400'}`} />
+            <ShieldCheck className={`w-4 h-4 ${activeTab === 'admin' ? 'text-purple-400' : 'text-neutral-400'}`} aria-hidden="true" />
             <span>{t('nav.admin')}</span>
           </button>
         )}
 
         <button
+          type="button"
           onClick={() => setActiveTab('settings')}
+          aria-current={activeTab === 'settings' ? 'page' : undefined}
           className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${
             activeTab === 'settings'
               ? 'bg-teal-600/20 text-teal-300 border border-teal-500/30'
               : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
           }`}
         >
-          <Settings className={`w-4 h-4 ${activeTab === 'settings' ? 'text-teal-400' : 'text-neutral-400'}`} />
+          <Settings className={`w-4 h-4 ${activeTab === 'settings' ? 'text-teal-400' : 'text-neutral-400'}`} aria-hidden="true" />
           <span>{t('nav.settings')}</span>
         </button>
       </div>

@@ -1,23 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, UserPlus, Trash2, CalendarCheck, Shield, 
-  Clock, DollarSign, Activity, AlertCircle, Sparkles 
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Users, UserPlus, Trash2, CalendarCheck, DollarSign } from 'lucide-react';
 import { api } from '../../services/api';
-import { useLocation } from '../../context/LocationContext';
-import { useLanguage } from '../../context/LanguageContext';
-import { useAuth } from '../../context/AuthContext';
-import { FamilyMember, FamilyDailyPlanResponse } from '../../types';
+import { useLocation } from '../../context/hooks';
+import type { FamilyMember, FamilyDailyPlanResponse } from '../../types';
 
 export const FamilyView: React.FC = () => {
-  const { currentCity, currentLat, currentLon, airQuality } = useLocation();
-  const { language, t } = useLanguage();
-  const { user } = useAuth();
+  const { currentCity, currentLat, currentLon } = useLocation();
 
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [dailyPlan, setDailyPlan] = useState<FamilyDailyPlanResponse | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -25,24 +19,37 @@ export const FamilyView: React.FC = () => {
   const [ageGroup, setAgeGroup] = useState('child');
   const [sensitivityProfile, setSensitivityProfile] = useState('respiratory_sensitive');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [mems, plan] = await Promise.all([
         api.getFamilyMembers(),
-        api.getFamilyDailyPlan(currentLat, currentLon, currentCity),
+        api.getFamilyDailyPlan(currentLat, currentLon, currentCity).catch(() => null),
       ]);
       setMembers(mems);
       setDailyPlan(plan);
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentCity, currentLat, currentLon]);
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    Promise.all([
+      api.getFamilyMembers(),
+      api.getFamilyDailyPlan(currentLat, currentLon, currentCity).catch(() => null),
+    ])
+      .then(([mems, plan]) => {
+        if (!active) return;
+        setMembers(mems);
+        setDailyPlan(plan);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [currentCity, currentLat, currentLon]);
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -50,23 +57,27 @@ export const FamilyView: React.FC = () => {
     if (!name.trim()) return;
     try {
       await api.addFamilyMember({
-        name,
+        name: name.trim(),
         relation,
         age_group: ageGroup,
         sensitivity_profile: sensitivityProfile,
       });
       setName('');
       setIsAddOpen(false);
+      setStatusMessage('Family member profile added.');
       await loadData();
-    } catch (e) {
-      console.error(e);
+    } catch (err: unknown) {
+      setStatusMessage(err instanceof Error ? err.message : 'Sign in to save household member profiles.');
     }
   };
 
   const handleDeleteMember = async (id: number) => {
-    if (confirm('Remove this family member profile?')) {
+    try {
       await api.deleteFamilyMember(id);
+      setStatusMessage('Family member profile removed.');
       await loadData();
+    } catch {
+      setStatusMessage('Could not remove family member profile.');
     }
   };
 
@@ -74,42 +85,60 @@ export const FamilyView: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Top Header */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-extrabold text-white">Family Lifestyle Intelligence</h2>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Personalized exposure mitigation routines tailored to your household's unique sensitivities
-              </p>
-            </div>
+        <div className="flex items-center space-x-2.5">
+          <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30">
+            <Users className="w-6 h-6" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="text-xl font-extrabold text-white">Family Lifestyle Intelligence</h2>
+            <p className="text-xs text-neutral-400 mt-0.5">
+              Personalized exposure mitigation routines tailored to your household&apos;s unique sensitivities
+            </p>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={() => setIsAddOpen(true)}
           className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs transition shadow-lg shadow-teal-900/30 self-start sm:self-auto"
         >
-          <UserPlus className="w-4 h-4" />
+          <UserPlus className="w-4 h-4" aria-hidden="true" />
           <span>Add Family Member</span>
         </button>
       </div>
 
+      {statusMessage && (
+        <div role="status" className="p-3 rounded-xl bg-teal-950/50 border border-teal-500/30 text-xs text-teal-200 flex items-center justify-between">
+          <span>{statusMessage}</span>
+          <button type="button" onClick={() => setStatusMessage(null)} className="underline ml-4">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Add Member Modal */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="family-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+        >
           <div className="w-full max-w-md rounded-2xl bg-neutral-900 border border-neutral-700 p-6 text-white space-y-4">
-            <h3 className="text-lg font-bold">Add Household Profile</h3>
+            <h3 id="family-modal-title" className="text-lg font-bold">
+              Add Household Profile
+            </h3>
             <p className="text-xs text-neutral-400">
               Profiles help customize outdoor windows and mask recommendations without storing sensitive health data.
             </p>
 
             <form onSubmit={handleAddMember} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Name</label>
+                <label htmlFor="family-member-name" className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Name
+                </label>
                 <input
+                  id="family-member-name"
                   type="text"
                   required
                   value={name}
@@ -120,8 +149,11 @@ export const FamilyView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Relation</label>
+                <label htmlFor="family-member-relation" className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Relation
+                </label>
                 <select
+                  id="family-member-relation"
                   value={relation}
                   onChange={(e) => setRelation(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
@@ -135,8 +167,11 @@ export const FamilyView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Age Group</label>
+                <label htmlFor="family-member-age" className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Age Group
+                </label>
                 <select
+                  id="family-member-age"
                   value={ageGroup}
                   onChange={(e) => setAgeGroup(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
@@ -150,8 +185,11 @@ export const FamilyView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">Sensitivity Profile</label>
+                <label htmlFor="family-member-sensitivity" className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Sensitivity Profile
+                </label>
                 <select
+                  id="family-member-sensitivity"
                   value={sensitivityProfile}
                   onChange={(e) => setSensitivityProfile(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
@@ -185,6 +223,12 @@ export const FamilyView: React.FC = () => {
         </div>
       )}
 
+      {isLoading && (
+        <div role="status" className="p-4 text-xs text-neutral-400">
+          Loading household exposure profiles...
+        </div>
+      )}
+
       {/* Household Members List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {members.map((m) => (
@@ -194,24 +238,26 @@ export const FamilyView: React.FC = () => {
           >
             <div>
               <div className="font-bold text-sm text-white">{m.name}</div>
-              <div className="text-xs text-teal-400 capitalize">{m.relation} • {m.age_group}</div>
-              <div className="text-[10px] text-neutral-400 mt-0.5">
-                {m.sensitivity_profile.replace('_', ' ')}
+              <div className="text-xs text-teal-400 capitalize">
+                {m.relation} • {m.age_group}
               </div>
+              <div className="text-[10px] text-neutral-400 mt-0.5">{m.sensitivity_profile.replace('_', ' ')}</div>
             </div>
             <button
-              onClick={() => handleDeleteMember(m.id)}
+              type="button"
+              onClick={() => void handleDeleteMember(m.id)}
               className="p-1.5 text-neutral-500 hover:text-red-400 rounded-lg transition"
               title="Delete member"
+              aria-label={`Remove family member ${m.name}`}
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         ))}
 
-        {members.length === 0 && (
+        {!isLoading && members.length === 0 && (
           <div className="col-span-full p-4 rounded-xl bg-neutral-950/60 border border-dashed border-neutral-800 text-center text-xs text-neutral-400">
-            No specific family members added yet. Add profiles above to generate member-specific guidance.
+            No specific family members added yet. Sign in and add profiles above to generate member-specific guidance.
           </div>
         )}
       </div>
@@ -222,8 +268,8 @@ export const FamilyView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-4">
             <div>
               <div className="flex items-center space-x-2">
-                <CalendarCheck className="w-5 h-5 text-teal-400" />
-                <h3 className="font-extrabold text-base text-white">Today's Family Action Roadmap</h3>
+                <CalendarCheck className="w-5 h-5 text-teal-400" aria-hidden="true" />
+                <h3 className="font-extrabold text-base text-white">Today&apos;s Family Action Roadmap</h3>
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">{dailyPlan.overview}</p>
             </div>
@@ -250,9 +296,7 @@ export const FamilyView: React.FC = () => {
                   <span className="text-[11px] text-neutral-500 font-mono">Source: {act.source}</span>
                 </div>
 
-                <div className="text-sm font-semibold text-white leading-snug">
-                  {act.recommendation}
-                </div>
+                <div className="text-sm font-semibold text-white leading-snug">{act.recommendation}</div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-neutral-400 pt-2 border-t border-neutral-800/60">
                   <div>
@@ -260,17 +304,21 @@ export const FamilyView: React.FC = () => {
                     {act.reason}
                   </div>
                   <div>
-                    <span className="font-bold text-teal-300 block mb-0.5">Health & Respiratory Benefit:</span>
+                    <span className="font-bold text-teal-300 block mb-0.5">Health &amp; Respiratory Benefit:</span>
                     {act.expected_benefit}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between pt-2 text-[11px] text-neutral-500 gap-2">
                   <span className="flex items-center space-x-1">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Estimated Cost: <strong className="text-neutral-300">{act.estimated_cost}</strong></span>
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                    <span>
+                      Estimated Cost: <strong className="text-neutral-300">{act.estimated_cost}</strong>
+                    </span>
                   </span>
-                  <span>Difficulty: <strong className="text-neutral-300">{act.difficulty}</strong></span>
+                  <span>
+                    Difficulty: <strong className="text-neutral-300">{act.difficulty}</strong>
+                  </span>
                   <span className="text-emerald-400">Impact: {act.environmental_impact}</span>
                 </div>
               </div>

@@ -14,5 +14,5 @@ echo ClearSky AI is launching!
 echo Backend:  http://127.0.0.1:8000 (API Docs: http://127.0.0.1:8000/docs)
 echo Frontend: http://localhost:5173
 echo.
-echo Default Super Admin: admin@clearsky.ai / AdminPass123!
+echo Admin Setup: Register the first user or set ADMIN_EMAIL / ADMIN_INITIAL_PASSWORD.
 echo =====================================================================

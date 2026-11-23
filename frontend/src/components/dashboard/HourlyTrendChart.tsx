@@ -1,17 +1,55 @@
 import React from 'react';
-import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  CartesianGrid, ReferenceLine 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  ReferenceLine,
 } from 'recharts';
-import { useLocation } from '../../context/LocationContext';
+import { useLocation } from '../../context/hooks';
 import { Clock, TrendingUp } from 'lucide-react';
+
+interface TrendDatum {
+  time: string;
+  aqi: number;
+  pm25: number;
+  temp: number;
+  wind: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: TrendDatum }>;
+  label?: string;
+}
+
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const p = payload[0].payload;
+    return (
+      <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-700 shadow-xl text-xs space-y-1">
+        <div className="font-bold text-white flex items-center space-x-1">
+          <Clock className="w-3.5 h-3.5 text-teal-400" aria-hidden="true" />
+          <span>Time: {label}</span>
+        </div>
+        <div className="text-teal-300 font-extrabold">AQI: {p.aqi}</div>
+        <div className="text-neutral-300">PM2.5: {p.pm25} µg/m³</div>
+        <div className="text-neutral-400">Temp: {p.temp}°C • Wind: {p.wind} km/h</div>
+      </div>
+    );
+  }
+  return null;
+};
 
 export const HourlyTrendChart: React.FC = () => {
   const { airQuality, aqiStandard } = useLocation();
 
   if (!airQuality || !airQuality.hourly) return null;
 
-  const data = airQuality.hourly.map((h) => ({
+  const data: TrendDatum[] = airQuality.hourly.map((h) => ({
     time: h.time.length > 5 ? h.time.slice(-5) : h.time,
     aqi: aqiStandard === 'in' ? h.aqi_in : h.aqi_us,
     pm25: h.pm2_5,
@@ -19,34 +57,16 @@ export const HourlyTrendChart: React.FC = () => {
     wind: h.wind_speed_kmh,
   }));
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const p = payload[0].payload;
-      return (
-        <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-700 shadow-xl text-xs space-y-1">
-          <div className="font-bold text-white flex items-center space-x-1">
-            <Clock className="w-3.5 h-3.5 text-teal-400" />
-            <span>Time: {label}</span>
-          </div>
-          <div className="text-teal-300 font-extrabold">AQI: {p.aqi}</div>
-          <div className="text-neutral-300">PM2.5: {p.pm25} µg/m³</div>
-          <div className="text-neutral-400">Temp: {p.temp}°C • Wind: {p.wind} km/h</div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
         <div>
           <div className="flex items-center space-x-2">
-            <TrendingUp className="w-5 h-5 text-teal-400" />
+            <TrendingUp className="w-5 h-5 text-teal-400" aria-hidden="true" />
             <h3 className="font-extrabold text-base text-white">24-Hour Diurnal Pollution Trend</h3>
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Hourly particulate concentration & atmospheric dispersion behavior
+            Hourly particulate concentration &amp; atmospheric dispersion behavior
           </p>
         </div>
         <div className="flex items-center space-x-4 text-xs font-medium text-neutral-400">
@@ -61,7 +81,7 @@ export const HourlyTrendChart: React.FC = () => {
         </div>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="h-64 w-full" role="img" aria-label="24-Hour Diurnal Pollution Trend area chart">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>

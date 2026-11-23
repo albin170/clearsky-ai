@@ -59,8 +59,8 @@ async def delete_family_member(
 
 @router.get("/daily-plan", response_model=FamilyDailyPlanResponse)
 async def get_family_daily_plan(
-    lat: float = Query(28.6139),
-    lon: float = Query(77.2090),
+    lat: float = Query(28.6139, ge=-90.0, le=90.0),
+    lon: float = Query(77.2090, ge=-180.0, le=180.0),
     city: str = Query("Delhi"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

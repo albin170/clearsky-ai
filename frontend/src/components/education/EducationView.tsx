@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, HelpCircle, CheckCircle, XCircle, 
-  Sparkles, Award, ExternalLink, Lightbulb 
-} from 'lucide-react';
+import { BookOpen, HelpCircle, CheckCircle, XCircle, Lightbulb } from 'lucide-react';
 import { api } from '../../services/api';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../context/hooks';
+import type { EducationalTopic, QuizQuestion } from '../../types';
 
 export const EducationView: React.FC = () => {
   const { language } = useLanguage();
-  const [topics, setTopics] = useState<any[]>([]);
-  const [quiz, setQuiz] = useState<any[]>([]);
+  const [topics, setTopics] = useState<EducationalTopic[]>([]);
+  const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [facts, setFacts] = useState<string[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<any | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<EducationalTopic | null>(null);
 
   // Quiz state
   const [currentQuizIdx, setCurrentQuizIdx] = useState(0);
@@ -20,6 +18,7 @@ export const EducationView: React.FC = () => {
   const [score, setScore] = useState(0);
 
   useEffect(() => {
+    let active = true;
     async function loadContent() {
       try {
         const [topData, qzData, fctData] = await Promise.all([
@@ -27,15 +26,19 @@ export const EducationView: React.FC = () => {
           api.getQuiz(),
           api.getDailyFacts(),
         ]);
+        if (!active) return;
         setTopics(topData);
         if (topData.length > 0) setSelectedTopic(topData[0]);
         setQuiz(qzData);
         setFacts(fctData);
-      } catch (e) {
-        console.error(e);
+      } catch {
+        if (active) setTopics([]);
       }
     }
-    loadContent();
+    void loadContent();
+    return () => {
+      active = false;
+    };
   }, [language]);
 
   const handleSelectOption = (index: number) => {
@@ -43,7 +46,7 @@ export const EducationView: React.FC = () => {
     setSelectedOption(index);
     setIsAnswerRevealed(true);
     if (index === quiz[currentQuizIdx].correct_index) {
-      setScore(prev => prev + 1);
+      setScore((prev) => prev + 1);
     }
   };
 
@@ -51,9 +54,8 @@ export const EducationView: React.FC = () => {
     setSelectedOption(null);
     setIsAnswerRevealed(false);
     if (currentQuizIdx < quiz.length - 1) {
-      setCurrentQuizIdx(prev => prev + 1);
+      setCurrentQuizIdx((prev) => prev + 1);
     } else {
-      // Completed
       setCurrentQuizIdx(0);
     }
   };
@@ -63,7 +65,7 @@ export const EducationView: React.FC = () => {
       {/* Header */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl flex items-center space-x-3">
         <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30">
-          <BookOpen className="w-6 h-6" />
+          <BookOpen className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
           <h2 className="text-xl font-extrabold text-white">Educational Environmental Intelligence</h2>
@@ -77,7 +79,7 @@ export const EducationView: React.FC = () => {
       {facts.length > 0 && (
         <div className="p-4 rounded-xl bg-teal-950/30 border border-teal-800/40 flex items-center space-x-3">
           <div className="p-2 rounded-lg bg-teal-500/20 text-teal-400 shrink-0">
-            <Lightbulb className="w-5 h-5 animate-pulse" />
+            <Lightbulb className="w-5 h-5 animate-pulse" aria-hidden="true" />
           </div>
           <div className="text-xs text-teal-200 leading-relaxed">
             <strong className="text-white block mb-0.5">Daily Atmospheric Fact:</strong>
@@ -91,27 +93,27 @@ export const EducationView: React.FC = () => {
         {/* Topics List */}
         <div className="lg:col-span-5 space-y-3">
           <h3 className="font-extrabold text-base text-white">Science Modules</h3>
-          <div className="space-y-2">
-            {topics.map((t) => {
-              const isSelected = selectedTopic?.id === t.id;
+          <div className="space-y-2" role="list">
+            {topics.map((topic) => {
+              const isSelected = selectedTopic?.id === topic.id;
               return (
-                <div
-                  key={t.id}
-                  onClick={() => setSelectedTopic(t)}
-                  className={`p-4 rounded-xl cursor-pointer transition border ${
+                <button
+                  type="button"
+                  key={topic.id}
+                  onClick={() => setSelectedTopic(topic)}
+                  aria-current={isSelected ? 'true' : undefined}
+                  className={`w-full text-left p-4 rounded-xl transition border ${
                     isSelected
                       ? 'bg-neutral-800 border-teal-500 shadow-md'
                       : 'bg-neutral-900/80 border-neutral-800 hover:border-neutral-700'
                   }`}
                 >
                   <span className="text-[10px] font-black uppercase text-teal-400 tracking-wider">
-                    {t.category}
+                    {topic.category}
                   </span>
-                  <h4 className="font-bold text-sm text-white mt-1">{t.title}</h4>
-                  <p className="text-xs text-neutral-400 mt-1 line-clamp-2 leading-relaxed">
-                    {t.summary}
-                  </p>
-                </div>
+                  <h4 className="font-bold text-sm text-white mt-1">{topic.title}</h4>
+                  <p className="text-xs text-neutral-400 mt-1 line-clamp-2 leading-relaxed">{topic.summary}</p>
+                </button>
               );
             })}
           </div>
@@ -120,7 +122,7 @@ export const EducationView: React.FC = () => {
         {/* Selected Topic Content */}
         <div className="lg:col-span-7">
           {selectedTopic && (
-            <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
+            <article className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
               <div>
                 <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">
                   {selectedTopic.category}
@@ -138,7 +140,7 @@ export const EducationView: React.FC = () => {
                   <span>Verified Science</span>
                 </span>
               </div>
-            </div>
+            </article>
           )}
         </div>
       </div>
@@ -148,7 +150,7 @@ export const EducationView: React.FC = () => {
         <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center space-x-2">
-              <HelpCircle className="w-5 h-5 text-teal-400" />
+              <HelpCircle className="w-5 h-5 text-teal-400" aria-hidden="true" />
               <h3 className="font-extrabold text-base text-white">ClearSky Knowledge Quiz</h3>
             </div>
             <div className="text-xs font-bold text-teal-400">
@@ -157,12 +159,10 @@ export const EducationView: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <h4 className="text-base font-bold text-white">
-              {quiz[currentQuizIdx].question}
-            </h4>
+            <h4 className="text-base font-bold text-white">{quiz[currentQuizIdx].question}</h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {quiz[currentQuizIdx].options.map((opt: string, idx: number) => {
+              {quiz[currentQuizIdx].options.map((opt, idx) => {
                 let btnStyle = 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-200';
                 if (isAnswerRevealed) {
                   if (idx === quiz[currentQuizIdx].correct_index) {
@@ -174,6 +174,7 @@ export const EducationView: React.FC = () => {
 
                 return (
                   <button
+                    type="button"
                     key={idx}
                     disabled={isAnswerRevealed}
                     onClick={() => handleSelectOption(idx)}
@@ -181,10 +182,10 @@ export const EducationView: React.FC = () => {
                   >
                     <span>{opt}</span>
                     {isAnswerRevealed && idx === quiz[currentQuizIdx].correct_index && (
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
                     )}
                     {isAnswerRevealed && idx === selectedOption && idx !== quiz[currentQuizIdx].correct_index && (
-                      <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <XCircle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
                     )}
                   </button>
                 );
@@ -192,13 +193,12 @@ export const EducationView: React.FC = () => {
             </div>
 
             {isAnswerRevealed && (
-              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2 animate-in fade-in">
+              <div role="status" className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2 animate-in fade-in">
                 <span className="text-xs font-bold text-teal-400">Scientific Explanation:</span>
-                <p className="text-xs text-neutral-300 leading-relaxed">
-                  {quiz[currentQuizIdx].explanation}
-                </p>
+                <p className="text-xs text-neutral-300 leading-relaxed">{quiz[currentQuizIdx].explanation}</p>
                 <div className="pt-2">
                   <button
+                    type="button"
                     onClick={handleNextQuestion}
                     className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs transition"
                   >

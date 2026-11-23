@@ -6,7 +6,7 @@ import { HourlyTrendChart } from './HourlyTrendChart';
 import { DailyForecastList } from './DailyForecastList';
 import { WeatherCorrelationCard } from './WeatherCorrelationCard';
 import { LocationComparer } from './LocationComparer';
-import { useLocation } from '../../context/LocationContext';
+import { useLocation } from '../../context/hooks';
 import { RotateCw, AlertCircle } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {

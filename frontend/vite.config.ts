@@ -8,6 +8,31 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3-')) {
+              return 'vendor-charts'
+            }
+            if (id.includes('jspdf')) {
+              return 'vendor-jspdf'
+            }
+            if (id.includes('html2canvas')) {
+              return 'vendor-canvas'
+            }
+            if (id.includes('lucide-react') || id.includes('canvas-confetti')) {
+              return 'vendor-ui'
+            }
+            if (id.includes('react-dom') || id.includes('/react/')) {
+              return 'vendor-react'
+            }
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

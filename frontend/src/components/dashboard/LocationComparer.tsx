@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
-import { ArrowLeftRight, Check, Sparkles } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
+import type { LocationComparisonResponse } from '../../types';
 
 const COMPARE_CITIES = [
   { name: 'Delhi NCR', lat: 28.6139, lon: 77.2090 },
@@ -16,7 +17,7 @@ const COMPARE_CITIES = [
 export const LocationComparer: React.FC = () => {
   const [city1, setCity1] = useState(COMPARE_CITIES[0]);
   const [city2, setCity2] = useState(COMPARE_CITIES[1]);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<LocationComparisonResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCompare = async () => {
@@ -24,11 +25,11 @@ export const LocationComparer: React.FC = () => {
     try {
       const data = await api.compareLocations(
         city1.lat, city1.lon, city1.name,
-        city2.lat, city2.lon, city2.name
+        city2.lat, city2.lon, city2.name,
       );
       setResult(data);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setResult(null);
     } finally {
       setIsLoading(false);
     }
@@ -37,41 +38,56 @@ export const LocationComparer: React.FC = () => {
   return (
     <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
       <div className="flex items-center space-x-2">
-        <ArrowLeftRight className="w-5 h-5 text-teal-400" />
+        <ArrowLeftRight className="w-5 h-5 text-teal-400" aria-hidden="true" />
         <h3 className="font-extrabold text-base text-white">Compare Regional Airsheds</h3>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-neutral-400 mb-1">First Location</label>
+          <label htmlFor="compare-city-1" className="block text-xs font-semibold text-neutral-400 mb-1">
+            First Location
+          </label>
           <select
+            id="compare-city-1"
             value={city1.name}
             onChange={(e) => {
-              const c = COMPARE_CITIES.find(x => x.name === e.target.value);
+              const c = COMPARE_CITIES.find((x) => x.name === e.target.value);
               if (c) setCity1(c);
             }}
             className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
           >
-            {COMPARE_CITIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            {COMPARE_CITIES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-neutral-400 mb-1">Second Location</label>
+          <label htmlFor="compare-city-2" className="block text-xs font-semibold text-neutral-400 mb-1">
+            Second Location
+          </label>
           <select
+            id="compare-city-2"
             value={city2.name}
             onChange={(e) => {
-              const c = COMPARE_CITIES.find(x => x.name === e.target.value);
+              const c = COMPARE_CITIES.find((x) => x.name === e.target.value);
               if (c) setCity2(c);
             }}
             className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
           >
-            {COMPARE_CITIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            {COMPARE_CITIES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       <button
+        type="button"
         onClick={handleCompare}
         disabled={isLoading}
         className="w-full py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 font-bold text-sm text-teal-300 transition"

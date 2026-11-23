@@ -55,12 +55,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 | `DATABASE_URL` | SQLite / PostgreSQL URL | `sqlite+aiosqlite:///./clearsky.db` |
 | `GEMINI_API_KEY` | Optional Google Gemini key | (Uses built-in Grounded RAG if unset) |
 | `AQI_CACHE_TTL_SECONDS` | In-memory cache duration | `900` |
+| `ADMIN_EMAIL` | Optional initial Super Admin email | (Empty — first registered user becomes Super Admin) |
+| `ADMIN_INITIAL_PASSWORD` | Optional initial Super Admin password | (Empty — required only when `ADMIN_EMAIL` is set) |
 
 ---
 
-## 3. Seed Credentials (Immediate Access)
+## 3. Initial Administrator Provisioning
 
-| Role | Email | Password | Access Rights |
-|---|---|---|---|
-| **Super Admin** | `admin@clearsky.ai` | `AdminPass123!` | Full Administrative & Moderation Control |
-| **New Citizen** | Self-register | Any 6+ char password | Standard Household Features |
+No default administrator credentials are hardcoded or seeded automatically. Provision the initial Super Admin using one of two secure methods:
+
+1. **Environment Variables:** Set `ADMIN_EMAIL` and `ADMIN_INITIAL_PASSWORD` before starting the backend.
+2. **First-User Bootstrap:** Leave those variables unset and register the first account via `POST /api/v1/auth/register` (automatically assigned `super_admin`).

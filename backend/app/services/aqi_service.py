@@ -1,11 +1,13 @@
+import asyncio
 import time
 import httpx
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime, timezone
+from app.core.config import settings
 
 # In-memory cache for AQI and Weather responses: key -> (timestamp, data)
 _AQI_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
-CACHE_TTL = 900  # 15 minutes
+CACHE_TTL = settings.AQI_CACHE_TTL_SECONDS
 
 # CPCB Indian National AQI Breakpoints
 # (low_conc, high_conc, low_aqi, high_aqi)
@@ -65,8 +67,9 @@ def calculate_sub_index(conc: float, pollutant: str) -> int:
     if not breakpoints or conc < 0:
         return 0
     for low_c, high_c, low_i, high_i in breakpoints:
-        if low_c <= conc <= high_c:
-            return round(((high_i - low_i) / (high_c - low_c)) * (conc - low_c) + low_i)
+        if conc <= high_c:
+            effective_low = min(conc, low_c)
+            return round(((high_i - low_i) / (high_c - low_c)) * (conc - effective_low) + low_i)
     if conc > breakpoints[-1][1]:
         return 500
     return 0
@@ -180,7 +183,6 @@ async def fetch_air_quality_and_weather(
     _AQI_CACHE[cache_key] = (now, parsed)
     return parsed
 
-import asyncio
 
 def parse_aqi_and_weather(
     aq_data: Dict[str, Any],

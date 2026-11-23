@@ -144,53 +144,27 @@ npm run dev
 
 ---
 
-## 5. Pre-Seeded Super Admin Credentials
+## 5. Secure First-Time Administrator Provisioning
 
-The platform initializes an admin account on its first run:
-- **Email:** `admin@clearsky.ai`
-- **Password:** `AdminPass123!`
-- **Role:** `super_admin`
+ClearSky AI does **not** ship with fixed public administrator credentials. Provision an administrator securely using either method:
+
+1. **Environment Variables (Recommended for Production):**
+   Set `ADMIN_EMAIL` and `ADMIN_INITIAL_PASSWORD` in your environment (or `.env`) before starting the backend.
+2. **First-User Bootstrap:**
+   When starting on a fresh database without `ADMIN_EMAIL` configured, the very first user registered via `/api/v1/auth/register` is automatically assigned the `super_admin` role.
 
 ---
 
 ## 6. Verification & Automated Test Results
 
-The backend test suite verifies calculations, algorithms, and endpoints. To run tests:
+Both backend (`pytest`) and frontend (`npm run lint`, `npm test`, `npm run build`) test suites verify CPCB AQI calculations, security controls, RBAC authorization, rate limiting, EcoReels, bilingual translations, and API contracts:
 ```bash
 cd backend
-python -m pytest
-```
+python -m pytest -v
 
-### Test Suite Summary:
+cd ../frontend
+npm run lint && npm test && npm run build
 ```
-============================= test session starts =============================
-platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.7.0
-rootdir: C:\Users\Dell\Documents\clearsky-ai\backend
-plugins: anyio, asyncio, timeout
-collected 15 items
-
-tests\test_api.py ......                                                 [ 40%]
-tests\test_aqi.py .....                                                  [ 73%]
-tests\test_emissions.py ...                                              [ 93%]
-tests\test_prediction.py .                                               [100%]
-
-============================= 15 passed in 4.08s ==============================
-```
-- `test_pm25_sub_index_calculation`: PASSED
-- `test_pm10_sub_index_calculation`: PASSED
-- `test_indian_aqi_categories`: PASSED
-- `test_us_aqi_categories`: PASSED
-- `test_wind_and_weather_helpers`: PASSED
-- `test_commute_emissions_calculation`: PASSED
-- `test_sustainable_alternatives_generation`: PASSED
-- `test_what_if_simulator`: PASSED
-- `test_pollution_prediction_windows`: PASSED
-- `test_root_endpoint`: PASSED
-- `test_health_endpoint`: PASSED
-- `test_air_quality_current`: PASSED
-- `test_what_if_simulator_api`: PASSED
-- `test_clean_route_planner_api`: PASSED
-- `test_auth_and_user_flow`: PASSED
 
 ---
 

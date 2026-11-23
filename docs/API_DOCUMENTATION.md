@@ -29,8 +29,8 @@ Authenticates user credentials and returns a signed JWT.
 - **Request Body:**
   ```json
   {
-    "email": "admin@clearsky.ai",
-    "password": "AdminPass123!"
+    "email": "user@example.com",
+    "password": "your-account-password"
   }
   ```
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation } from '../../context/LocationContext';
+import { useLocation } from '../../context/hooks';
 import { Calendar, CloudSun } from 'lucide-react';
 
 export const DailyForecastList: React.FC = () => {

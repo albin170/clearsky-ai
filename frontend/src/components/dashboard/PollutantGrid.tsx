@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation } from '../../context/LocationContext';
+import { useLocation } from '../../context/hooks';
 
 export const PollutantGrid: React.FC = () => {
   const { airQuality } = useLocation();

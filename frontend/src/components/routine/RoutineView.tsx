@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CalendarCheck, Car, Bike, Train, Bus, DollarSign, 
-  Leaf, Info, ArrowRight, CheckCircle2 
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CalendarCheck } from 'lucide-react';
 import { api } from '../../services/api';
-import { RoutineOut, SustainableAlternative } from '../../types';
+import type { RoutineOut } from '../../types';
+
+function round(num: number, decimals: number) {
+  return Number(Math.round(Number(num + 'e' + decimals)) + 'e-' + decimals);
+}
 
 export const RoutineView: React.FC = () => {
   const [commuteMode, setCommuteMode] = useState('car_petrol');
@@ -13,53 +14,62 @@ export const RoutineView: React.FC = () => {
   const [routine, setRoutine] = useState<RoutineOut | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleGenerate = useCallback(
+    async (overrideMode?: string, overrideDist?: number, overrideSched?: string) => {
+      setIsLoading(true);
+      try {
+        const res = await api.generateRoutine({
+          commute_mode: overrideMode ?? commuteMode,
+          daily_distance_km: Number(overrideDist ?? dailyDistance),
+          schedule_type: overrideSched ?? scheduleType,
+        });
+        setRoutine(res);
+      } catch {
+        // Keep current routine view state if API unavailable
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [commuteMode, dailyDistance, scheduleType],
+  );
+
   useEffect(() => {
+    let active = true;
     async function loadMyRoutine() {
       try {
         const r = await api.getMyRoutine();
+        if (!active) return;
         if (r) {
           setRoutine(r);
           setCommuteMode(r.commute_mode);
           setDailyDistance(r.daily_distance_km);
           setScheduleType(r.schedule_type);
         } else {
-          // Generate initial demo routine
-          handleGenerate();
+          await handleGenerate('car_petrol', 16.0, 'work_standard');
         }
-      } catch (e) {
-        handleGenerate();
+      } catch {
+        if (active) {
+          await handleGenerate('car_petrol', 16.0, 'work_standard');
+        }
       }
     }
-    loadMyRoutine();
-  }, []);
-
-  const handleGenerate = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.generateRoutine({
-        commute_mode: commuteMode,
-        daily_distance_km: Number(dailyDistance),
-        schedule_type: scheduleType,
-      });
-      setRoutine(res);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    void loadMyRoutine();
+    return () => {
+      active = false;
+    };
+  }, [handleGenerate]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl flex items-center space-x-3">
         <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30">
-          <CalendarCheck className="w-6 h-6" />
+          <CalendarCheck className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
           <h2 className="text-xl font-extrabold text-white">Low-Emission Daily Routine Generator</h2>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Identify actionable commute & lifestyle shifts supported by documented emission factors
+            Identify actionable commute &amp; lifestyle shifts supported by documented emission factors
           </p>
         </div>
       </div>
@@ -68,8 +78,11 @@ export const RoutineView: React.FC = () => {
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1">Current Commute Method</label>
+            <label htmlFor="routine-commute-mode" className="block text-xs font-semibold text-neutral-300 mb-1">
+              Current Commute Method
+            </label>
             <select
+              id="routine-commute-mode"
               value={commuteMode}
               onChange={(e) => setCommuteMode(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
@@ -85,8 +98,11 @@ export const RoutineView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1">Daily Roundtrip Distance (km)</label>
+            <label htmlFor="routine-distance" className="block text-xs font-semibold text-neutral-300 mb-1">
+              Daily Roundtrip Distance (km)
+            </label>
             <input
+              id="routine-distance"
               type="number"
               min={1}
               max={150}
@@ -98,8 +114,11 @@ export const RoutineView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-300 mb-1">Schedule Architecture</label>
+            <label htmlFor="routine-schedule" className="block text-xs font-semibold text-neutral-300 mb-1">
+              Schedule Architecture
+            </label>
             <select
+              id="routine-schedule"
               value={scheduleType}
               onChange={(e) => setScheduleType(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
@@ -113,7 +132,8 @@ export const RoutineView: React.FC = () => {
         </div>
 
         <button
-          onClick={handleGenerate}
+          type="button"
+          onClick={() => void handleGenerate()}
           disabled={isLoading}
           className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm transition shadow-lg shadow-teal-900/40"
         >
@@ -143,15 +163,14 @@ export const RoutineView: React.FC = () => {
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
               <span className="text-xs text-neutral-400">Annual Projected Emissions</span>
               <div className="text-2xl font-black text-white mt-1">
-                {round((routine.estimated_daily_co2_kg * 260) / 1000, 2)} <span className="text-xs font-normal text-neutral-500">metric tons</span>
+                {round((routine.estimated_daily_co2_kg * 260) / 1000, 2)}{' '}
+                <span className="text-xs font-normal text-neutral-500">metric tons</span>
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
               <span className="text-xs text-neutral-400">Action Potential</span>
-              <div className="text-2xl font-black text-teal-400 mt-1">
-                3 High-Impact Shifts
-              </div>
+              <div className="text-2xl font-black text-teal-400 mt-1">3 High-Impact Shifts</div>
             </div>
           </div>
 
@@ -198,7 +217,9 @@ export const RoutineView: React.FC = () => {
                 </div>
 
                 <div className="text-xs text-neutral-300 space-y-1">
-                  <p><strong>Long-Term Benefit:</strong> {alt.long_term_benefit}</p>
+                  <p>
+                    <strong>Long-Term Benefit:</strong> {alt.long_term_benefit}
+                  </p>
                   <p className="text-neutral-500 font-mono text-[11px]">
                     <strong>Calculation Assumptions:</strong> {alt.calculation_assumptions}
                   </p>
@@ -211,7 +232,3 @@ export const RoutineView: React.FC = () => {
     </div>
   );
 };
-
-function round(num: number, decimals: number) {
-  return Number(Math.round(Number(num + 'e' + decimals)) + 'e-' + decimals);
-}

@@ -19,26 +19,24 @@ router = APIRouter(prefix="/community", tags=["Community Action Network"])
 
 @router.get("/list", response_model=List[CommunityOut])
 async def list_communities(db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Community))
-    comms = res.scalars().all()
-    
-    output = []
-    for c in comms:
-        # Count members
-        cnt_res = await db.execute(
-            select(func.count(CommunityMember.id)).where(CommunityMember.community_id == c.id)
-        )
-        count = cnt_res.scalar() or 0
-        output.append(CommunityOut(
+    res = await db.execute(
+        select(Community, func.count(CommunityMember.id))
+        .outerjoin(CommunityMember, CommunityMember.community_id == Community.id)
+        .group_by(Community.id)
+    )
+    rows = res.all()
+    return [
+        CommunityOut(
             id=c.id,
             name=c.name,
             city=c.city,
             description=c.description,
             category=c.category,
-            members_count=count,
-            created_at=c.created_at
-        ))
-    return output
+            members_count=count or 0,
+            created_at=c.created_at,
+        )
+        for c, count in rows
+    ]
 
 @router.post("/create", response_model=CommunityOut, status_code=status.HTTP_201_CREATED)
 async def create_community(
@@ -88,6 +86,10 @@ async def join_community(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    comm_res = await db.execute(select(Community).where(Community.id == community_id))
+    if not comm_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Community not found")
+
     # Check if already joined
     res = await db.execute(
         select(CommunityMember).where(
@@ -110,26 +112,29 @@ async def join_community(
 
 @router.get("/challenges", response_model=List[CommunityChallengeOut])
 async def list_challenges(db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(CommunityChallenge).where(CommunityChallenge.is_active == True))
-    challenges = res.scalars().all()
-    
-    output = []
-    for ch in challenges:
-        cnt_res = await db.execute(
-            select(func.count(UserChallengeParticipation.id)).where(UserChallengeParticipation.challenge_id == ch.id)
+    res = await db.execute(
+        select(CommunityChallenge, func.count(UserChallengeParticipation.id))
+        .outerjoin(
+            UserChallengeParticipation,
+            UserChallengeParticipation.challenge_id == CommunityChallenge.id,
         )
-        count = cnt_res.scalar() or 0
-        output.append(CommunityChallengeOut(
+        .where(CommunityChallenge.is_active == True)
+        .group_by(CommunityChallenge.id)
+    )
+    rows = res.all()
+    return [
+        CommunityChallengeOut(
             id=ch.id,
             title=ch.title,
             description=ch.description,
             challenge_type=ch.challenge_type,
             points_reward=ch.points_reward,
             duration_days=ch.duration_days,
-            participants_count=count,
-            is_active=ch.is_active
-        ))
-    return output
+            participants_count=count or 0,
+            is_active=ch.is_active,
+        )
+        for ch, count in rows
+    ]
 
 @router.post("/challenges/join")
 async def join_challenge(
@@ -137,6 +142,9 @@ async def join_challenge(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    ch_res = await db.execute(select(CommunityChallenge).where(CommunityChallenge.id == req.challenge_id))
+    if not ch_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Challenge not found")
     res = await db.execute(
         select(UserChallengeParticipation).where(
             UserChallengeParticipation.challenge_id == req.challenge_id,

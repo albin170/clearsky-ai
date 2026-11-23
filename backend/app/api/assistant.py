@@ -126,8 +126,8 @@ async def chat_with_assistant(
 
 @router.get("/daily-briefing")
 async def get_daily_environmental_briefing(
-    lat: float = Query(28.6139),
-    lon: float = Query(77.2090),
+    lat: float = Query(28.6139, ge=-90.0, le=90.0),
+    lon: float = Query(77.2090, ge=-180.0, le=180.0),
     city: str = Query("Delhi"),
     lang: str = Query("en"),
     current_user: Optional[User] = Depends(get_optional_current_user),

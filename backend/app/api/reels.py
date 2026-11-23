@@ -1,28 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
 import datetime
+from app.schemas.schemas import ReelCommentCreate, ReelCreate, ReelOut
 
 router = APIRouter(prefix="/reels", tags=["EcoReels Environmental Shorts"])
-
-class ReelCommentCreate(BaseModel):
-    author: str = "EcoCitizen"
-    handle: str = "@citizen_eco"
-    text: str
-
-class ReelCreate(BaseModel):
-    title: str
-    caption: str
-    tags: List[str] = ["#CleanAir", "#BreatheSafe"]
-    category: str = "health"
-    creator_name: str = "ClearSky Community"
-    creator_handle: str = "@community_voice"
-    aqi_badge: Optional[str] = "AQI 320 • Very Poor"
-    theme_gradient: str = "from-amber-600 via-rose-700 to-neutral-950"
-    visual_type: str = "inversion_layer"
-    video_url: Optional[str] = "/videos/outdoor-jogging.mp4"
-    audio_url: Optional[str] = "/audio/reel-track-1.mp3"
-    key_takeaway: str
 
 INITIAL_REELS: List[Dict[str, Any]] = [
     {
@@ -279,7 +260,7 @@ INITIAL_REELS: List[Dict[str, Any]] = [
 # In-memory storage for reels dynamic operations
 reels_store: List[Dict[str, Any]] = [dict(r) for r in INITIAL_REELS]
 
-@router.get("", response_model=List[Dict[str, Any]])
+@router.get("", response_model=List[ReelOut])
 def get_reels(
     category: Optional[str] = Query(None, description="Filter reels by category (smog_alert, health, home_hacks, stubble_fire, tech)"),
     search: Optional[str] = Query(None, description="Search reels by title, tag, or creator")
@@ -299,7 +280,7 @@ def get_reels(
         ]
     return results
 
-@router.get("/{reel_id}", response_model=Dict[str, Any])
+@router.get("/{reel_id}", response_model=ReelOut)
 def get_reel_by_id(reel_id: str):
     """Retrieve a single environmental reel."""
     for r in reels_store:
@@ -361,7 +342,7 @@ def add_reel_comment(reel_id: str, comment: ReelCommentCreate):
             }
     raise HTTPException(status_code=404, detail="Reel not found")
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, response_model=ReelOut)
 def create_reel(payload: ReelCreate):
     """Create a new community or educator environmental reel."""
     new_reel = {
