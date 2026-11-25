@@ -6,7 +6,13 @@ from typing import List
 from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.models import User, SavedLocation
-from app.schemas.schemas import AirQualityResponse, SavedLocationCreate, SavedLocationOut
+from app.schemas.schemas import (
+    AirQualityResponse,
+    DetailMessageResponse,
+    LocationComparisonResponse,
+    SavedLocationCreate,
+    SavedLocationOut,
+)
 from app.services.aqi_service import fetch_air_quality_and_weather
 
 router = APIRouter(prefix="/air-quality", tags=["Air Quality & Weather"])
@@ -68,7 +74,7 @@ async def add_saved_location(
     return new_loc
 
 
-@router.delete("/saved-locations/{location_id}")
+@router.delete("/saved-locations/{location_id}", response_model=DetailMessageResponse)
 async def delete_saved_location(
     location_id: int,
     current_user: User = Depends(get_current_user),
@@ -88,7 +94,7 @@ async def delete_saved_location(
     return {"detail": "Saved location removed"}
 
 
-@router.get("/compare")
+@router.get("/compare", response_model=LocationComparisonResponse)
 async def compare_locations(
     lat1: float = Query(..., ge=-90.0, le=90.0, description="Location 1 Latitude"),
     lon1: float = Query(..., ge=-180.0, le=180.0, description="Location 1 Longitude"),

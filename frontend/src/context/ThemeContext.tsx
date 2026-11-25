@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeContext, type Theme } from './hooks';
 
+function resolveInitialTheme(): Theme {
+  if (typeof localStorage === 'undefined') return 'dark';
+  const saved = localStorage.getItem('clearsky_theme');
+  if (saved === 'light' || saved === 'contrast' || saved === 'dark') {
+    return saved;
+  }
+  return 'dark';
+}
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem('clearsky_theme') as Theme) || 'dark',
-  );
+  const [theme, setThemeState] = useState<Theme>(resolveInitialTheme);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     document.body.classList.remove('theme-light', 'theme-contrast');
     if (theme === 'light') {
       document.body.classList.add('theme-light');
@@ -16,7 +24,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
-    localStorage.setItem('clearsky_theme', newTheme);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('clearsky_theme', newTheme);
+    }
     setThemeState(newTheme);
   };
 

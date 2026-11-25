@@ -67,7 +67,7 @@ export const RoutineView: React.FC = () => {
           <CalendarCheck className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-white">Low-Emission Daily Routine Generator</h2>
+          <h1 className="text-xl font-extrabold text-white">Low-Emission Daily Routine Generator</h1>
           <p className="text-xs text-neutral-400 mt-0.5">
             Identify actionable commute &amp; lifestyle shifts supported by documented emission factors
           </p>
@@ -176,7 +176,7 @@ export const RoutineView: React.FC = () => {
 
           {/* Sustainable Alternatives Cards */}
           <div className="space-y-4">
-            <h3 className="font-extrabold text-lg text-white">Recommended Sustainable Alternatives</h3>
+            <h2 className="font-extrabold text-lg text-white">Recommended Sustainable Alternatives</h2>
 
             {routine.alternatives.map((alt, idx) => (
               <div
@@ -188,7 +188,7 @@ export const RoutineView: React.FC = () => {
                     <span className="p-2 rounded-lg bg-teal-500/10 text-teal-400 font-bold text-xs">
                       Shift #{idx + 1}
                     </span>
-                    <h4 className="font-bold text-base text-white">{alt.recommended_alternative}</h4>
+                    <h3 className="font-bold text-base text-white">{alt.recommended_alternative}</h3>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700 self-start sm:self-auto font-medium">
                     Difficulty: {alt.practical_difficulty}

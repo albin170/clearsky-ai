@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -8,6 +8,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { MobileNav } from './components/layout/MobileNav';
 import { AuthModal } from './components/layout/AuthModal';
 import { DashboardView } from './components/dashboard/DashboardView';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const ReelsView = lazy(() => import('./components/reels/ReelsView').then((m) => ({ default: m.ReelsView })));
 const AssistantView = lazy(() =>
@@ -32,6 +33,22 @@ const SettingsView = lazy(() =>
   import('./components/settings/SettingsView').then((m) => ({ default: m.SettingsView })),
 );
 
+const TAB_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  reels: 'EcoReels Environmental Shorts',
+  assistant: 'AI Environmental Assistant',
+  family: 'Family Lifestyle Intelligence',
+  indoor: 'Indoor Air Quality Optimizer',
+  routine: 'Low-Emission Routine Planner',
+  prediction: 'Pollution Prediction Engine',
+  map: 'Pollution Hotspot & Clean-Air Route Map',
+  community: 'Community Action Network',
+  impact: 'Environmental Impact & What-If Simulator',
+  education: 'Environmental Science Learning Center',
+  admin: 'Administrative & Moderation Center',
+  settings: 'Settings & Data Privacy',
+};
+
 const ViewFallback: React.FC = () => (
   <div role="status" aria-live="polite" className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
     <div className="w-10 h-10 rounded-full border-4 border-teal-500/20 border-t-teal-500 animate-spin" />
@@ -42,6 +59,13 @@ const ViewFallback: React.FC = () => (
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const section = TAB_TITLES[activeTab] || 'Dashboard';
+      document.title = `ClearSky AI — ${section}`;
+    }
+  }, [activeTab]);
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -77,7 +101,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 selection:bg-teal-500 selection:text-white">
+    <div className="app-shell min-h-screen flex flex-col bg-neutral-950 text-neutral-100 selection:bg-teal-500 selection:text-white">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-xl focus:bg-teal-600 focus:text-white focus:font-bold focus:text-xs"
@@ -85,30 +109,27 @@ const AppContent: React.FC = () => {
         Skip to main content
       </a>
 
-      {/* Top Navbar */}
       <Navbar onOpenAuth={() => setIsAuthOpen(true)} />
 
-      {/* Main Body with Sidebar */}
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <main id="main-content" tabIndex={-1} className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 md:pb-8 overflow-x-hidden">
-          <Suspense fallback={<ViewFallback />}>{renderActiveView()}</Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<ViewFallback />}>{renderActiveView()}</Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 
-      {/* Mobile Sticky Navigation */}
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Sign In / Registration Modal */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
-      {/* Footer */}
-      <footer className="hidden md:block border-t border-neutral-900 bg-neutral-950 py-6 text-center text-xs text-neutral-500">
+      <footer className="hidden md:block border-t border-neutral-900 bg-neutral-950 py-6 text-center text-xs text-neutral-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>ClearSky AI © 2026 • GenAI-Powered Winter Smog & Urban Air Pollution Intelligence Platform</span>
+          <span>ClearSky AI © 2026 • GenAI-Powered Winter Smog &amp; Urban Air Pollution Intelligence Platform</span>
           <div className="flex items-center space-x-4">
-            <span className="text-neutral-400">Data: Open-Meteo & CPCB NAQI Standard</span>
+            <span className="text-neutral-400">Data: Open-Meteo &amp; CPCB NAQI Standard</span>
             <span className="text-teal-400">Production Quality</span>
           </div>
         </div>

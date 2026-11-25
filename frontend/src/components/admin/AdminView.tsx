@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Activity, Users, Flag, FileText, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Activity, FileText, Flag, RefreshCw, ShieldCheck, Users } from 'lucide-react';
 import { api } from '../../services/api';
-import type { User, CommunityReport, SystemHealthResponse, AuditLogItem } from '../../types';
+import type { AuditLogItem, CommunityReport, SystemHealthResponse, User } from '../../types';
 
 type AdminTabId = 'health' | 'users' | 'moderation' | 'audit';
 
@@ -14,15 +14,15 @@ export const AdminView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  const fetchAdminBundle = useCallback(
+    () => Promise.all([api.getAdminHealth(), api.getAdminUsers(), api.getAdminReports(), api.getAuditLogs()]),
+    [],
+  );
+
   const loadAdminData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [h, u, r, a] = await Promise.all([
-        api.getAdminHealth(),
-        api.getAdminUsers(),
-        api.getAdminReports(),
-        api.getAuditLogs(),
-      ]);
+      const [h, u, r, a] = await fetchAdminBundle();
       setHealthData(h);
       setUsers(u);
       setReports(r);
@@ -32,16 +32,11 @@ export const AdminView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchAdminBundle]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      api.getAdminHealth(),
-      api.getAdminUsers(),
-      api.getAdminReports(),
-      api.getAuditLogs(),
-    ])
+    fetchAdminBundle()
       .then(([h, u, r, a]) => {
         if (!active) return;
         setHealthData(h);
@@ -60,7 +55,7 @@ export const AdminView: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [fetchAdminBundle]);
 
   const handleUpdateRole = async (userId: number, role: string) => {
     try {
@@ -99,16 +94,24 @@ export const AdminView: React.FC = () => {
     { id: 'audit', label: `Audit Logs (${auditLogs.length})`, icon: FileText },
   ];
 
+  const handleTabKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % adminTabs.length : (idx - 1 + adminTabs.length) % adminTabs.length;
+    const nextTab = adminTabs[nextIdx];
+    setActiveTab(nextTab.id);
+    document.getElementById(`admin-tab-${nextTab.id}`)?.focus();
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-2.5">
           <div className="p-2.5 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30">
             <ShieldCheck className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-white">ClearSky Administrative &amp; Moderation Center</h2>
+            <h1 className="text-xl font-extrabold text-white">ClearSky Administrative &amp; Moderation Center</h1>
             <p className="text-xs text-neutral-400 mt-0.5">
               Role-based platform operations, API health telemetry, user controls, and citizen report moderation
             </p>
@@ -127,7 +130,11 @@ export const AdminView: React.FC = () => {
       </div>
 
       {statusMessage && (
-        <div role="status" className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-purple-200 flex items-center justify-between">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-purple-200 flex items-center justify-between"
+        >
           <span>{statusMessage}</span>
           <button type="button" onClick={() => setStatusMessage(null)} className="underline ml-4">
             Dismiss
@@ -135,18 +142,21 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
       <div role="tablist" aria-label="Administrative Sections" className="flex space-x-2 border-b border-neutral-800 pb-3 overflow-x-auto">
-        {adminTabs.map((tab) => {
+        {adminTabs.map((tab, idx) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               type="button"
+              id={`admin-tab-${tab.id}`}
               role="tab"
               aria-selected={isActive}
+              aria-controls={`admin-panel-${tab.id}`}
+              tabIndex={isActive ? 0 : -1}
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, idx)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 isActive
                   ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
@@ -160,14 +170,13 @@ export const AdminView: React.FC = () => {
         })}
       </div>
 
-      {/* Health / Telemetry Tab */}
       {activeTab === 'health' && healthData && (
-        <div className="space-y-4">
+        <div id="admin-panel-health" role="tabpanel" aria-labelledby="admin-tab-health" className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
               <span className="text-xs text-neutral-400">Platform Status</span>
               <div className="text-xl font-black text-emerald-400 mt-1 flex items-center space-x-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 <span>{healthData.status}</span>
               </div>
             </div>
@@ -175,36 +184,36 @@ export const AdminView: React.FC = () => {
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
               <span className="text-xs text-neutral-400">Open-Meteo Gateway</span>
               <div className="text-xl font-black text-white mt-1">Operational</div>
-              <span className="text-[10px] text-neutral-500">{healthData.open_meteo_api}</span>
+              <span className="text-[10px] text-neutral-400">{healthData.open_meteo_api}</span>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
               <span className="text-xs text-neutral-400">GenAI Provider</span>
               <div className="text-xl font-black text-teal-300 mt-1">
-                {healthData.gemini_api_configured ? 'Gemini 1.5/2.0 API' : 'ClearSky Grounded RAG'}
+                {healthData.gemini_api_configured ? 'Gemini API' : 'ClearSky Grounded RAG'}
               </div>
-              <span className="text-[10px] text-neutral-500">Deterministic Fallback Ready</span>
+              <span className="text-[10px] text-neutral-400">Deterministic Fallback Ready</span>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
-              <span className="text-xs text-neutral-400">Database Engine</span>
-              <div className="text-xl font-black text-white mt-1">SQLite Async</div>
-              <span className="text-[10px] text-neutral-500">aiosqlite Connection Pool</span>
+              <span className="text-xs text-neutral-400">Active Cache Entries</span>
+              <div className="text-xl font-black text-white mt-1">{healthData.cached_locations}</div>
+              <span className="text-[10px] text-neutral-400">SQLite Async Connected</span>
             </div>
           </div>
 
           <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-3">
-            <h3 className="font-bold text-sm text-white">Aggregated Platform Activity Statistics</h3>
+            <h2 className="font-bold text-sm text-white">Aggregated Platform Activity Statistics</h2>
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-850">
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
                 <div className="text-2xl font-black text-white">{healthData.active_users_count}</div>
                 <div className="text-xs text-neutral-400">Registered Citizens</div>
               </div>
-              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-850">
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
                 <div className="text-2xl font-black text-white">{healthData.total_communities}</div>
                 <div className="text-xs text-neutral-400">Active Coalitions</div>
               </div>
-              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-850">
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
                 <div className="text-2xl font-black text-white">{healthData.total_impact_logs}</div>
                 <div className="text-xs text-neutral-400">Recorded Sustainable Actions</div>
               </div>
@@ -213,11 +222,15 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* Users Management Tab */}
       {activeTab === 'users' && (
-        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-xl overflow-x-auto">
+        <div
+          id="admin-panel-users"
+          role="tabpanel"
+          aria-labelledby="admin-tab-users"
+          className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-xl overflow-x-auto"
+        >
           <table className="w-full text-left text-xs text-neutral-300">
-            <thead className="text-[10px] uppercase font-bold text-neutral-500 border-b border-neutral-800">
+            <thead className="text-[10px] uppercase font-bold text-neutral-400 border-b border-neutral-800">
               <tr>
                 <th className="pb-3">User ID</th>
                 <th className="pb-3">Full Name &amp; Email</th>
@@ -231,7 +244,7 @@ export const AdminView: React.FC = () => {
                 const active = u.is_active !== false;
                 return (
                   <tr key={u.id} className="hover:bg-neutral-800/40 transition">
-                    <td className="py-3 font-mono text-neutral-500">#{u.id}</td>
+                    <td className="py-3 font-mono text-neutral-400">#{u.id}</td>
                     <td className="py-3">
                       <div className="font-bold text-white">{u.full_name}</div>
                       <div className="text-[11px] text-neutral-400">{u.email}</div>
@@ -275,10 +288,9 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* Moderation Tab */}
       {activeTab === 'moderation' && (
-        <div className="space-y-3">
-          <h3 className="font-bold text-sm text-white">Community Pollution Reports Moderation Queue</h3>
+        <div id="admin-panel-moderation" role="tabpanel" aria-labelledby="admin-tab-moderation" className="space-y-3">
+          <h2 className="font-bold text-sm text-white">Community Pollution Reports Moderation Queue</h2>
           <div className="space-y-3">
             {reports.map((r) => (
               <div
@@ -288,12 +300,12 @@ export const AdminView: React.FC = () => {
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-sm text-white">{r.title}</span>
-                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
                       {r.report_type}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-300 mt-1">{r.description}</p>
-                  <div className="text-[11px] text-neutral-500 mt-1">Location: {r.address}</div>
+                  <div className="text-[11px] text-neutral-400 mt-1">Location: {r.address}</div>
                 </div>
 
                 <div className="flex items-center space-x-2 self-start sm:self-auto">
@@ -318,10 +330,14 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* Audit Logs Tab */}
       {activeTab === 'audit' && (
-        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-xl space-y-2">
-          <h3 className="font-bold text-sm text-white mb-3">Security &amp; Administrative Audit Logs</h3>
+        <div
+          id="admin-panel-audit"
+          role="tabpanel"
+          aria-labelledby="admin-tab-audit"
+          className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-xl space-y-2"
+        >
+          <h2 className="font-bold text-sm text-white mb-3">Security &amp; Administrative Audit Logs</h2>
           <div className="divide-y divide-neutral-800/80 max-h-96 overflow-y-auto">
             {auditLogs.map((log) => (
               <div key={log.id} className="py-2.5 text-xs flex items-center justify-between">
@@ -329,7 +345,7 @@ export const AdminView: React.FC = () => {
                   <span className="font-mono text-purple-400 font-bold mr-2">[{log.action}]</span>
                   <span className="text-neutral-300">{log.details}</span>
                 </div>
-                <span className="text-[10px] text-neutral-500 font-mono shrink-0 ml-4">
+                <span className="text-[10px] text-neutral-400 font-mono shrink-0 ml-4">
                   {new Date(log.timestamp).toLocaleTimeString()}
                 </span>
               </div>

@@ -8,6 +8,7 @@ export const en = {
     family: 'My Family',
     indoor: 'Indoor Air',
     routine: 'Daily Planner',
+    prediction: 'Predictions',
     map: 'Pollution Map',
     community: 'Community',
     impact: 'Impact Tracker',

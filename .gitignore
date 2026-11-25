@@ -39,6 +39,7 @@ wheels/
 .coverage
 htmlcov/
 .vite-temp/
+.test-dist/
 
 # Environment Variables & Local Secrets
 .env

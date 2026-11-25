@@ -1,27 +1,84 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+LanguageCode = Literal["en", "ml"]
+UserRole = Literal["super_admin", "moderator", "community_manager", "standard_user"]
+CommuteMode = Literal["car_petrol", "car_diesel", "two_wheeler", "bus", "metro", "bicycle", "walk"]
+ScheduleType = Literal["work_standard", "college", "flexible", "night_shift"]
+VentilationType = Literal["cross_windows", "single_window", "sealed_ac", "exhaust_only"]
+PurifierFilterType = Literal["hepa_h13", "basic", "carbon", "none"]
+CookingExposure = Literal["high", "moderate", "low", "none"]
+FamilyRelation = Literal["self", "child", "elderly", "spouse", "parent", "other"]
+AgeGroup = Literal["infant", "child", "teen", "adult", "senior"]
+SensitivityProfile = Literal[
+    "standard",
+    "respiratory_sensitive",
+    "cardiovascular_sensitive",
+    "outdoor_athlete",
+    "outdoor_worker",
+    "student",
+]
+CommunityCategory = Literal["neighborhood", "school_college", "workplace", "environmental_club"]
+ReportCategory = Literal[
+    "waste_burning",
+    "construction_dust",
+    "traffic_idling",
+    "industrial_emission",
+    "crop_burning",
+    "other",
+]
+ReportModerationStatus = Literal["pending", "reviewed", "resolved", "flagged_spam"]
+ImpactActivityType = Literal[
+    "public_transit_used",
+    "cycling_trip",
+    "walking_trip",
+    "carpooling",
+    "energy_saved",
+    "waste_segregated",
+    "no_waste_burning",
+]
+WhatIfShiftMode = Literal[
+    "car_to_metro",
+    "car_to_bus",
+    "car_to_cycling",
+    "zero_waste_burning",
+    "energy_conservation",
+]
+ActiveTransitMode = Literal["walking", "cycling"]
+ReelCategory = Literal["smog_alert", "health", "home_hacks", "stubble_fire", "tech"]
+
+
+class DetailMessageResponse(BaseModel):
+    detail: str
+    status: Optional[str] = None
+    points_awarded: Optional[int] = None
+
 
 # ----------------- Auth & User -----------------
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=128)
     full_name: str = Field(..., min_length=1, max_length=255)
-    preferred_language: str = "en"
-    default_city: Optional[str] = "Delhi"
+    preferred_language: LanguageCode = "en"
+    default_city: Optional[str] = Field(default="Delhi", max_length=100)
     default_lat: Optional[float] = Field(default=28.6139, ge=-90.0, le=90.0)
     default_lon: Optional[float] = Field(default=77.2090, ge=-180.0, le=180.0)
 
+
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=256)
+
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    preferred_language: Optional[str] = None
-    default_city: Optional[str] = None
+    preferred_language: Optional[LanguageCode] = None
+    default_city: Optional[str] = Field(default=None, max_length=100)
     default_lat: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     default_lon: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+
 
 class UserOut(BaseModel):
     id: int
@@ -37,10 +94,12 @@ class UserOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
 
 # ----------------- Saved Locations -----------------
 class SavedLocationCreate(BaseModel):
@@ -49,6 +108,7 @@ class SavedLocationCreate(BaseModel):
     latitude: float = Field(..., ge=-90.0, le=90.0)
     longitude: float = Field(..., ge=-180.0, le=180.0)
     is_primary: bool = False
+
 
 class SavedLocationOut(BaseModel):
     id: int
@@ -61,17 +121,19 @@ class SavedLocationOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # ----------------- Air Quality & Weather -----------------
 class PollutantDetail(BaseModel):
     value: float
     unit: str
     sub_index: Optional[int] = None
-    status: str # Good, Satisfactory, Moderate, Poor, Very Poor, Severe
+    status: str
     health_implication: str
 
+
 class CurrentAQI(BaseModel):
-    aqi_in: int # Indian National AQI (CPCB)
-    aqi_us: int # US EPA AQI
+    aqi_in: int
+    aqi_us: int
     category_in: str
     category_us: str
     color_in: str
@@ -87,9 +149,10 @@ class CurrentAQI(BaseModel):
     city: str
     latitude: float
     longitude: float
-    source: str # Open-Meteo Air Quality / CPCB Compatible
-    data_freshness: str # Live, Recent, Demo/Fallback
+    source: str
+    data_freshness: str
     pollutants: Dict[str, PollutantDetail]
+
 
 class WeatherData(BaseModel):
     temperature_c: float
@@ -101,6 +164,7 @@ class WeatherData(BaseModel):
     weather_description: str
     visibility_km: Optional[float] = None
 
+
 class HourlyForecastItem(BaseModel):
     time: str
     aqi_in: int
@@ -109,6 +173,7 @@ class HourlyForecastItem(BaseModel):
     pm10: float
     temperature_c: float
     wind_speed_kmh: float
+
 
 class DailyForecastItem(BaseModel):
     date: str
@@ -119,21 +184,37 @@ class DailyForecastItem(BaseModel):
     category_in: str
     weather_description: str
 
+
 class AirQualityResponse(BaseModel):
     current: CurrentAQI
     weather: WeatherData
     hourly: List[HourlyForecastItem]
     daily: List[DailyForecastItem]
-    ai_summary: str # "Your Air Quality Today" generated from real data
+    ai_summary: str
     cached: bool = False
+
+
+class LocationComparisonSummary(BaseModel):
+    aqi_difference: int
+    cleaner_location: str
+    pm25_difference: float
+    summary: str
+
+
+class LocationComparisonResponse(BaseModel):
+    location_1: CurrentAQI
+    location_2: CurrentAQI
+    comparison: LocationComparisonSummary
+
 
 # ----------------- Family Profiles -----------------
 class FamilyMemberCreate(BaseModel):
-    name: str
-    relation: str # self, child, elderly, spouse, parent, other
-    age_group: str # infant, child, teen, adult, senior
-    sensitivity_profile: str = "standard" # standard, respiratory_sensitive, cardiovascular_sensitive, outdoor_athlete, outdoor_worker, student
-    activity_preferences: str = "indoor_exercise,walking"
+    name: str = Field(..., min_length=1, max_length=100)
+    relation: FamilyRelation
+    age_group: AgeGroup
+    sensitivity_profile: SensitivityProfile = "standard"
+    activity_preferences: str = Field(default="indoor_exercise,walking", max_length=255)
+
 
 class FamilyMemberOut(BaseModel):
     id: int
@@ -146,16 +227,18 @@ class FamilyMemberOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class FamilyPlanActivity(BaseModel):
-    period: str # Morning, Afternoon, Evening
+    period: str
     target_member: str
     recommendation: str
     reason: str
     expected_benefit: str
     estimated_cost: str
-    difficulty: str # Low, Medium, High
+    difficulty: str
     environmental_impact: str
     source: str
+
 
 class FamilyDailyPlanResponse(BaseModel):
     date: str
@@ -164,16 +247,18 @@ class FamilyDailyPlanResponse(BaseModel):
     activities: List[FamilyPlanActivity]
     overview: str
 
+
 # ----------------- Indoor Air Optimizer -----------------
 class RoomAssessmentCreate(BaseModel):
     room_name: str = Field(..., min_length=1, max_length=100)
     room_size_sqft: float = Field(..., gt=0.0, le=50000.0)
     occupants: int = Field(default=1, ge=1, le=500)
-    ventilation_type: str = "cross_windows" # cross_windows, single_window, sealed_ac, exhaust_only
+    ventilation_type: VentilationType = "cross_windows"
     has_purifier: bool = False
-    purifier_filter_type: str = "hepa_h13" # hepa_h13, basic, carbon, none
-    cooking_smoke_exposure: str = "low" # high, moderate, low, none
+    purifier_filter_type: PurifierFilterType = "hepa_h13"
+    cooking_smoke_exposure: CookingExposure = "low"
     sensor_pm25: Optional[float] = Field(default=None, ge=0.0, le=2000.0)
+
 
 class RoomAssessmentOut(BaseModel):
     id: int
@@ -191,6 +276,7 @@ class RoomAssessmentOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class VentilationWindowAdvice(BaseModel):
     optimal_window_opening_hours: List[str]
     worst_window_opening_hours: List[str]
@@ -198,12 +284,14 @@ class VentilationWindowAdvice(BaseModel):
     air_purifier_cadre_recommendation_cfm: float
     disclaimer: str
 
+
 # ----------------- Routine & Emissions -----------------
 class RoutineCreate(BaseModel):
-    commute_mode: str # car_petrol, car_diesel, two_wheeler, bus, metro, bicycle, walk
+    commute_mode: CommuteMode
     daily_distance_km: float = Field(..., gt=0.0, le=1000.0)
-    schedule_type: str = "work_standard"
-    waste_habits: Optional[str] = "segregated"
+    schedule_type: ScheduleType = "work_standard"
+    waste_habits: Optional[str] = Field(default="segregated", max_length=100)
+
 
 class SustainableAlternative(BaseModel):
     current_habit: str
@@ -211,9 +299,10 @@ class SustainableAlternative(BaseModel):
     cost_difference_monthly: str
     emissions_avoided_kg_co2_monthly: float
     pm25_avoided_g_monthly: float
-    practical_difficulty: str # Easy, Moderate, Advanced
+    practical_difficulty: str
     long_term_benefit: str
     calculation_assumptions: str
+
 
 class RoutineOut(BaseModel):
     id: int
@@ -225,13 +314,15 @@ class RoutineOut(BaseModel):
     alternatives: List[SustainableAlternative]
     created_at: datetime
 
+
 # ----------------- Prediction -----------------
 class PredictionWindow(BaseModel):
     time_window: str
     estimated_aqi: int
-    risk_level: str # Low, Moderate, High, Severe
-    confidence: str # High, Moderate, Exploratory
-    primary_driver: str # Temperature inversion, rush hour traffic, wind stagnation, calm night
+    risk_level: str
+    confidence: str
+    primary_driver: str
+
 
 class PredictionResponse(BaseModel):
     current_aqi: int
@@ -241,12 +332,14 @@ class PredictionResponse(BaseModel):
     explanation: str
     disclaimer: str
 
+
 # ----------------- Community -----------------
 class CommunityCreate(BaseModel):
-    name: str
-    city: str
-    description: str
-    category: str = "neighborhood"
+    name: str = Field(..., min_length=2, max_length=150)
+    city: str = Field(..., min_length=2, max_length=100)
+    description: str = Field(..., min_length=5, max_length=2000)
+    category: CommunityCategory = "neighborhood"
+
 
 class CommunityOut(BaseModel):
     id: int
@@ -258,6 +351,7 @@ class CommunityOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class CommunityChallengeOut(BaseModel):
     id: int
@@ -271,22 +365,26 @@ class CommunityChallengeOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class ChallengeJoinRequest(BaseModel):
-    challenge_id: int
+    challenge_id: int = Field(..., ge=1)
+
 
 class ChallengeCompleteRequest(BaseModel):
-    challenge_id: int
-    self_reported_notes: str
+    challenge_id: int = Field(..., ge=1)
+    self_reported_notes: str = Field(default="", max_length=2000)
+
 
 class CommunityReportCreate(BaseModel):
-    community_id: Optional[int] = None
+    community_id: Optional[int] = Field(default=None, ge=1)
     title: str = Field(..., min_length=1, max_length=200)
-    report_type: str # waste_burning, construction_dust, traffic_idling, industrial_emission, crop_burning, other
+    report_type: ReportCategory
     description: str = Field(..., min_length=1, max_length=2000)
     latitude: float = Field(..., ge=-90.0, le=90.0)
     longitude: float = Field(..., ge=-180.0, le=180.0)
     address: str = Field(..., min_length=1, max_length=255)
     is_anonymous: bool = False
+
 
 class CommunityReportOut(BaseModel):
     id: int
@@ -303,10 +401,20 @@ class CommunityReportOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # ----------------- Impact -----------------
 class ImpactLogCreate(BaseModel):
-    activity_type: str # public_transit_used, cycling_trip, walking_trip, carpooling, energy_saved, waste_segregated, no_waste_burning
-    units_count: float = Field(default=1.0, gt=0.0, le=10000.0) # km or kWh or events
+    activity_type: ImpactActivityType
+    units_count: float = Field(default=1.0, gt=0.0, le=10000.0)
+
+
+class ImpactLogOut(BaseModel):
+    detail: str
+    co2_saved_kg: float
+    pm25_avoided_g: float
+    fuel_saved_liters: float
+    money_saved_estimate: float
+
 
 class ImpactSummaryResponse(BaseModel):
     total_co2_avoided_kg: float
@@ -316,16 +424,34 @@ class ImpactSummaryResponse(BaseModel):
     activities_completed_count: int
     daily_history: List[Dict[str, Any]]
     methodology_note: str
-    eco_score: int # 0-100 Family Eco Score
+    eco_score: int
+    is_demo_data: bool = False
+
 
 # ----------------- Assistant -----------------
+class SuggestedQuestionsResponse(BaseModel):
+    language: str
+    questions: List[str]
+
+
+class DailyBriefingResponse(BaseModel):
+    date: str
+    city: str
+    aqi: int
+    category: str
+    briefing: str
+    key_action: str
+    language: str
+
+
 class AssistantChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     conversation_id: Optional[int] = None
-    language: str = "en" # "en" or "ml"
-    location_name: Optional[str] = None
+    language: LanguageCode = "en"
+    location_name: Optional[str] = Field(default=None, max_length=100)
     lat: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
     lon: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+
 
 class AssistantChatResponse(BaseModel):
     conversation_id: int
@@ -336,11 +462,13 @@ class AssistantChatResponse(BaseModel):
     sources_cited: List[str]
     disclaimer: str
 
+
 # ----------------- What-If Simulator -----------------
 class WhatIfRequest(BaseModel):
     participating_families: int = Field(default=100, ge=1, le=1000000)
     avg_commute_km: float = Field(default=15.0, gt=0.0, le=500.0)
-    shift_mode: str = "car_to_metro" # car_to_metro, car_to_bus, car_to_cycling, zero_waste_burning, energy_conservation
+    shift_mode: WhatIfShiftMode = "car_to_metro"
+
 
 class WhatIfResponse(BaseModel):
     participating_families: int
@@ -352,28 +480,50 @@ class WhatIfResponse(BaseModel):
     assumptions_explained: str
     disclaimer: str
 
+
 # ----------------- Clean Route Planner -----------------
 class CleanRouteRequest(BaseModel):
     start_lat: float = Field(..., ge=-90.0, le=90.0)
     start_lon: float = Field(..., ge=-180.0, le=180.0)
     end_lat: float = Field(..., ge=-90.0, le=90.0)
     end_lon: float = Field(..., ge=-180.0, le=180.0)
-    mode: str = "walking" # walking, cycling
+    mode: ActiveTransitMode = "walking"
+
 
 class RouteOption(BaseModel):
-    name: str # e.g. "Direct Arterial Route" vs "ClearSky Green & Residential Route"
+    name: str
     distance_km: float
     estimated_time_mins: int
-    estimated_pm25_exposure_index: float # 0 - 100 (lower is better)
-    pollution_exposure_label: str # "Elevated Traffic Exposure" vs "Lower Exposure Corridor"
+    estimated_pm25_exposure_index: float
+    pollution_exposure_label: str
     suitability: str
-    route_path: List[List[float]] # coordinates [[lat, lon], ...]
+    route_path: List[List[float]]
     advantages: List[str]
+
 
 class CleanRouteResponse(BaseModel):
     routes: List[RouteOption]
     guidance: str
     disclaimer: str
+
+
+# ----------------- Education -----------------
+class EducationalTopicOut(BaseModel):
+    id: str
+    title: str
+    category: str
+    summary: str
+    content: str
+    source: str
+
+
+class QuizQuestionOut(BaseModel):
+    id: int
+    question: str
+    options: List[str]
+    correct_index: int
+    explanation: str
+
 
 # ----------------- Notifications -----------------
 class NotificationPreferenceUpdate(BaseModel):
@@ -384,7 +534,8 @@ class NotificationPreferenceUpdate(BaseModel):
     community_challenge_reminders: Optional[bool] = None
     quiet_hours_start: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     quiet_hours_end: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
-    preferred_channel: Optional[str] = None
+    preferred_channel: Optional[Literal["in_app", "email"]] = None
+
 
 class NotificationPreferenceOut(BaseModel):
     high_aqi_alert: bool
@@ -396,6 +547,15 @@ class NotificationPreferenceOut(BaseModel):
     quiet_hours_end: str
     preferred_channel: str
 
+
+class NotificationAlertOut(BaseModel):
+    id: str
+    severity: Literal["high", "warning", "info"]
+    title: str
+    message: str
+    recommended_action: str
+
+
 # ----------------- EcoReels -----------------
 def _validate_safe_media_url(value: Optional[str]) -> Optional[str]:
     if value is None:
@@ -406,14 +566,18 @@ def _validate_safe_media_url(value: Optional[str]) -> Optional[str]:
     lower = stripped.lower()
     if lower.startswith("javascript:") or lower.startswith("data:") or lower.startswith("vbscript:"):
         raise ValueError("Unsafe URL scheme is not allowed")
+    if ".." in stripped or "\\" in stripped:
+        raise ValueError("Path traversal sequences are not allowed in media URLs")
     if not (stripped.startswith("/") or lower.startswith("https://") or lower.startswith("http://")):
         raise ValueError("Media URL must be a relative path or http(s) URL")
     return stripped
+
 
 class ReelCommentCreate(BaseModel):
     author: str = Field(default="EcoCitizen", min_length=1, max_length=100)
     handle: str = Field(default="@citizen_eco", min_length=1, max_length=60)
     text: str = Field(..., min_length=1, max_length=1000)
+
 
 class ReelCommentOut(BaseModel):
     id: str
@@ -424,16 +588,34 @@ class ReelCommentOut(BaseModel):
     likes: int
     timestamp: str
 
+
+class ReelLikeOut(BaseModel):
+    id: str
+    is_liked: bool
+    likes_count: int
+
+
+class ReelSaveOut(BaseModel):
+    id: str
+    is_saved: bool
+
+
+class ReelCommentAddedOut(BaseModel):
+    detail: str
+    comment: ReelCommentOut
+    comments_count: int
+
+
 class ReelCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     caption: str = Field(..., min_length=1, max_length=2000)
-    tags: List[str] = ["#CleanAir", "#BreatheSafe"]
-    category: str = "health"
+    tags: List[str] = Field(default_factory=lambda: ["#CleanAir", "#BreatheSafe"], max_length=15)
+    category: ReelCategory = "health"
     creator_name: str = Field(default="ClearSky Community", min_length=1, max_length=100)
     creator_handle: str = Field(default="@community_voice", min_length=1, max_length=60)
-    aqi_badge: Optional[str] = "AQI 320 • Very Poor"
-    theme_gradient: str = "from-amber-600 via-rose-700 to-neutral-950"
-    visual_type: str = "inversion_layer"
+    aqi_badge: Optional[str] = Field(default="AQI 320 • Very Poor", max_length=60)
+    theme_gradient: str = Field(default="from-amber-600 via-rose-700 to-neutral-950", max_length=120)
+    visual_type: str = Field(default="inversion_layer", max_length=60)
     video_url: Optional[str] = "/videos/outdoor-jogging.mp4"
     audio_url: Optional[str] = "/audio/reel-track-1.mp3"
     key_takeaway: str = Field(..., min_length=1, max_length=300)
@@ -442,6 +624,7 @@ class ReelCreate(BaseModel):
     @classmethod
     def check_safe_media_urls(cls, v: Optional[str]) -> Optional[str]:
         return _validate_safe_media_url(v)
+
 
 class ReelOut(BaseModel):
     id: str
@@ -470,6 +653,7 @@ class ReelOut(BaseModel):
     action_cta: Optional[Dict[str, str]] = None
     comments: List[ReelCommentOut] = []
 
+
 # ----------------- Admin & Health -----------------
 class SystemHealthResponse(BaseModel):
     status: str
@@ -482,3 +666,11 @@ class SystemHealthResponse(BaseModel):
     total_communities: int
     total_impact_logs: int
     cached_locations: int
+
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    action: str
+    details: Optional[str] = None
+    timestamp: str

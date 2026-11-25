@@ -1,22 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from app.core.database import get_db
 from app.core.security import (
-    get_password_hash,
-    verify_password,
     create_access_token,
-    oauth2_scheme,
     decode_access_token,
+    get_password_hash,
+    oauth2_scheme,
     rate_limiter,
+    verify_password,
 )
-from app.models.models import User, AuditLog
-from app.schemas.schemas import UserCreate, UserLogin, UserOut, Token, UserUpdate
+from app.models.models import AuditLog, User
+from app.schemas.schemas import DetailMessageResponse, Token, UserCreate, UserLogin, UserOut, UserUpdate
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def _client_key(request: Request, action: str) -> str:
+def get_client_rate_key(request: Request, action: str) -> str:
     host = request.client.host if request.client else "unknown"
     return f"{action}:{host}"
 
@@ -42,7 +42,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     return user
 
 
-async def get_optional_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User | None:
+async def get_optional_current_user(
+    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+) -> User | None:
     if not token:
         return None
     try:
@@ -52,7 +54,7 @@ async def get_optional_current_user(token: str = Depends(oauth2_scheme), db: Asy
 
 
 def require_role(allowed_roles: list[str]):
-    async def role_checker(current_user: User = Depends(get_current_user)):
+    async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -65,19 +67,17 @@ def require_role(allowed_roles: list[str]):
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    rate_limiter.check_rate_limit(_client_key(request, "register"), max_requests=20, window_seconds=60)
+    rate_limiter.check_rate_limit(get_client_rate_key(request, "register"), max_requests=20, window_seconds=60)
 
     normalized_email = user_in.email.strip().lower()
     cleaned_name = user_in.full_name.strip()
     if not cleaned_name:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Full name cannot be empty")
 
-    # Check if user already exists
     res = await db.execute(select(User).where(User.email == normalized_email))
     if res.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is already registered")
 
-    # If no super_admin exists or DB has zero users, promote first registrant to super_admin
     user_count = (await db.execute(select(func.count(User.id)))).scalar() or 0
     role = "super_admin" if user_count == 0 else "standard_user"
 
@@ -95,13 +95,14 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
     await db.commit()
     await db.refresh(new_user)
 
-    audit = AuditLog(
-        user_id=new_user.id,
-        action="USER_REGISTERED",
-        ip_address=request.client.host if request.client else None,
-        details=f"User {new_user.email} registered with role {role}",
+    db.add(
+        AuditLog(
+            user_id=new_user.id,
+            action="USER_REGISTERED",
+            ip_address=request.client.host if request.client else None,
+            details=f"User #{new_user.id} registered with role {role}",
+        )
     )
-    db.add(audit)
     await db.commit()
 
     token = create_access_token(subject=new_user.id, extra_claims={"role": new_user.role})
@@ -110,14 +111,35 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    rate_limiter.check_rate_limit(_client_key(request, "login"), max_requests=20, window_seconds=60)
+    rate_limiter.check_rate_limit(get_client_rate_key(request, "login"), max_requests=20, window_seconds=60)
 
-    res = await db.execute(select(User).where(User.email == credentials.email.strip().lower()))
+    normalized_email = credentials.email.strip().lower()
+    res = await db.execute(select(User).where(User.email == normalized_email))
     user = res.scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.hashed_password):
+        db.add(
+            AuditLog(
+                user_id=user.id if user else None,
+                action="USER_LOGIN_FAILED",
+                ip_address=request.client.host if request.client else None,
+                details="Invalid authentication attempt",
+            )
+        )
+        await db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
+
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action="USER_LOGIN",
+            ip_address=request.client.host if request.client else None,
+            details=f"User #{user.id} authenticated",
+        )
+    )
+    await db.commit()
 
     token = create_access_token(subject=user.id, extra_claims={"role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
@@ -153,18 +175,21 @@ async def update_profile(
     return current_user
 
 
-@router.delete("/delete-account")
+@router.delete("/delete-account", response_model=DetailMessageResponse)
 async def delete_account(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Right-to-be-forgotten / Data privacy compliance"""
-    audit = AuditLog(
-        user_id=None,
-        action="USER_DELETED_ACCOUNT",
-        details=f"User {current_user.email} (ID {current_user.id}) purged all personal data",
+    """Right-to-be-forgotten / data privacy compliance."""
+    db.add(
+        AuditLog(
+            user_id=None,
+            action="USER_DELETED_ACCOUNT",
+            details=f"User ID {current_user.id} purged all personal data",
+        )
     )
-    db.add(audit)
     await db.delete(current_user)
     await db.commit()
-    return {"detail": "Account and associated private data permanently deleted in accordance with data privacy standards."}
+    return {
+        "detail": "Account and associated private data permanently deleted in accordance with data privacy standards."
+    }

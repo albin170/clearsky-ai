@@ -1,12 +1,18 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
-from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.auth import get_client_rate_key, get_optional_current_user
 from app.core.database import get_db
-from app.api.auth import get_optional_current_user, get_current_user
-from app.models.models import User, AssistantConversation, AssistantMessage, FamilyMember
-from app.schemas.schemas import AssistantChatRequest, AssistantChatResponse
+from app.core.security import rate_limiter
+from app.models.models import AssistantConversation, AssistantMessage, FamilyMember, User
+from app.schemas.schemas import (
+    AssistantChatRequest,
+    AssistantChatResponse,
+    DailyBriefingResponse,
+    SuggestedQuestionsResponse,
+)
 from app.services.aqi_service import fetch_air_quality_and_weather
 from app.services.gemini_service import generate_assistant_response
 
@@ -17,7 +23,7 @@ SUGGESTED_QUESTIONS_EN = [
     "When is the best time to open my windows today for ventilation?",
     "How can I protect my children and elderly family members from winter smog?",
     "What are the most cost-effective indoor air quality improvements?",
-    "How much carbon and particulate emissions can my family avoid by taking the metro?"
+    "How much carbon and particulate emissions can my family avoid by taking the metro?",
 ]
 
 SUGGESTED_QUESTIONS_ML = [
@@ -25,29 +31,35 @@ SUGGESTED_QUESTIONS_ML = [
     "വീടിനകത്ത് ശുദ്ധവായു ലഭിക്കാൻ ജനലുകൾ തുറന്നിടാൻ ഏറ്റവും അനുയോജ്യമായ സമയം ഏതാണ്?",
     "ശൈത്യകാലത്തെ പുകമഞ്ഞിൽ നിന്ന് കുട്ടികളെയും പ്രായമായവരെയും എങ്ങനെ സംരക്ഷിക്കാം?",
     "വീട്ടിനുള്ളിലെ വായുമലിനീകരണം കുറയ്ക്കാൻ എന്ത് മുൻകരുതലുകൾ എടുക്കണം?",
-    "മെട്രോ അല്ലെങ്കിൽ പൊതുഗതാഗതം ഉപയോഗിക്കുന്നത് വഴി എത്രമാത്രം മലിനീകരണം കുറയ്ക്കാം?"
+    "മെട്രോ അല്ലെങ്കിൽ പൊതുഗതാഗതം ഉപയോഗിക്കുന്നത് വഴി എത്രമാത്രം മലിനീകരണം കുറയ്ക്കാം?",
 ]
 
-@router.get("/suggested-questions")
-async def get_suggested_questions(lang: str = Query("en")):
+
+@router.get("/suggested-questions", response_model=SuggestedQuestionsResponse)
+async def get_suggested_questions(lang: str = Query("en", max_length=10)):
     if lang == "ml":
         return {"language": "ml", "questions": SUGGESTED_QUESTIONS_ML}
     return {"language": "en", "questions": SUGGESTED_QUESTIONS_EN}
 
+
 @router.post("/chat", response_model=AssistantChatResponse)
 async def chat_with_assistant(
+    request: Request,
     req: AssistantChatRequest,
     current_user: Optional[User] = Depends(get_optional_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    # Fetch real AQI context
+    rate_limiter.check_rate_limit(get_client_rate_key(request, "assistant_chat"), max_requests=30, window_seconds=60)
+    cleaned_msg = req.message.strip()
+    if not cleaned_msg:
+        raise HTTPException(status_code=422, detail="Message cannot be empty")
+
     lat = req.lat if req.lat is not None else (current_user.default_lat if current_user and current_user.default_lat else 28.6139)
     lon = req.lon if req.lon is not None else (current_user.default_lon if current_user and current_user.default_lon else 77.2090)
     city = req.location_name or (current_user.default_city if current_user and current_user.default_city else "your location")
 
     aqi_data = await fetch_air_quality_and_weather(lat, lon, city)
 
-    # Fetch family members if user is authenticated
     family_data = []
     conversation = None
     if current_user:
@@ -58,7 +70,7 @@ async def chat_with_assistant(
                 "name": m.name,
                 "relation": m.relation,
                 "age_group": m.age_group,
-                "sensitivity_profile": m.sensitivity_profile
+                "sensitivity_profile": m.sensitivity_profile,
             }
             for m in members
         ]
@@ -67,51 +79,50 @@ async def chat_with_assistant(
             conv_res = await db.execute(
                 select(AssistantConversation).where(
                     AssistantConversation.id == req.conversation_id,
-                    AssistantConversation.user_id == current_user.id
+                    AssistantConversation.user_id == current_user.id,
                 )
             )
             conversation = conv_res.scalar_one_or_none()
 
         if not conversation:
-            conv_title = req.message[:40] + ("..." if len(req.message) > 40 else "")
+            conv_title = cleaned_msg[:40] + ("..." if len(cleaned_msg) > 40 else "")
             conversation = AssistantConversation(
                 user_id=current_user.id,
                 title=conv_title,
-                language=req.language
+                language=req.language,
             )
             db.add(conversation)
             await db.commit()
             await db.refresh(conversation)
 
-        # Store user message
-        user_msg = AssistantMessage(
-            conversation_id=conversation.id,
-            role="user",
-            content=req.message
+        db.add(
+            AssistantMessage(
+                conversation_id=conversation.id,
+                role="user",
+                content=cleaned_msg,
+            )
         )
-        db.add(user_msg)
         await db.commit()
 
-    # Generate response via AI
     ai_result = await generate_assistant_response(
-        user_query=req.message,
+        user_query=cleaned_msg,
         language=req.language,
         current_aqi_data=aqi_data,
         family_members_data=family_data,
-        city_name=city
+        city_name=city,
     )
 
     conv_id = conversation.id if conversation else 0
 
     if current_user and conversation:
-        # Save assistant message
-        bot_msg = AssistantMessage(
-            conversation_id=conversation.id,
-            role="assistant",
-            content=ai_result["content"],
-            structured_data=json.dumps(ai_result.get("structured_advice"))
+        db.add(
+            AssistantMessage(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=ai_result["content"],
+                structured_data=json.dumps(ai_result.get("structured_advice")),
+            )
         )
-        db.add(bot_msg)
         await db.commit()
 
     return {
@@ -121,24 +132,22 @@ async def chat_with_assistant(
         "language": req.language,
         "structured_advice": ai_result.get("structured_advice"),
         "sources_cited": ai_result.get("sources_cited", []),
-        "disclaimer": ai_result.get("disclaimer", "")
+        "disclaimer": ai_result.get("disclaimer", ""),
     }
 
-@router.get("/daily-briefing")
+
+@router.get("/daily-briefing", response_model=DailyBriefingResponse)
 async def get_daily_environmental_briefing(
     lat: float = Query(28.6139, ge=-90.0, le=90.0),
     lon: float = Query(77.2090, ge=-180.0, le=180.0),
-    city: str = Query("Delhi"),
-    lang: str = Query("en"),
-    current_user: Optional[User] = Depends(get_optional_current_user),
-    db: AsyncSession = Depends(get_db)
+    city: str = Query("Delhi", max_length=100),
+    lang: str = Query("en", max_length=10),
 ):
     aqi_data = await fetch_air_quality_and_weather(lat, lon, city)
     curr = aqi_data["current"]
     w = aqi_data["weather"]
 
-    is_ml = (lang == "ml")
-    if is_ml:
+    if lang == "ml":
         briefing_text = (
             f"സുപ്രഭാതം! {city}-ൽ ഇന്നത്തെ എക്യുഐ {curr['aqi_in']} ({curr['category_in']}) ആണ്. "
             f"പ്രധാന മലിനീകരണ ഘടകം {curr['dominant_pollutant']} (PM2.5: {curr['pm2_5']} µg/m³). "
@@ -160,5 +169,5 @@ async def get_daily_environmental_briefing(
         "category": curr["category_in"],
         "briefing": briefing_text,
         "key_action": "Switch today's routine car trip to public transit or carpooling to reduce community emissions.",
-        "language": lang
+        "language": lang,
     }

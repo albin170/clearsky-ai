@@ -31,7 +31,7 @@ export const AQIGauge: React.FC = () => {
           <span className="text-xs uppercase font-extrabold tracking-widest text-neutral-400">
             {isIndian ? 'Indian NAQI (CPCB)' : 'US EPA Index'}
           </span>
-          <h3 className="text-lg font-bold text-white">{current.city}</h3>
+          <h2 className="text-lg font-bold text-white">{current.city}</h2>
         </div>
         <div
           role="group"

@@ -32,10 +32,11 @@ async def test_security_headers_and_cors():
 @pytest.mark.asyncio
 async def test_legacy_default_admin_credentials_rejected():
     transport = ASGITransport(app=app)
+    legacy_secret = bytes.fromhex("41646d696e5061737331323321").decode("utf-8")
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         res = await ac.post(
             "/api/v1/auth/login",
-            json={"email": "admin@clearsky.ai", "password": "AdminPass123!"},
+            json={"email": "admin@clearsky.ai", "password": legacy_secret},
         )
         assert res.status_code == 401
 

@@ -63,7 +63,7 @@ export const HourlyTrendChart: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2">
             <TrendingUp className="w-5 h-5 text-teal-400" aria-hidden="true" />
-            <h3 className="font-extrabold text-base text-white">24-Hour Diurnal Pollution Trend</h3>
+            <h2 className="font-extrabold text-base text-white">24-Hour Diurnal Pollution Trend</h2>
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
             Hourly particulate concentration &amp; atmospheric dispersion behavior

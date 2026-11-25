@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
+from typing import List, Optional
 from app.core.database import get_db
 from app.api.auth import get_current_user, get_optional_current_user
 from app.models.models import User, NotificationPreference
-from app.schemas.schemas import NotificationPreferenceOut, NotificationPreferenceUpdate
+from app.schemas.schemas import (
+    DetailMessageResponse,
+    NotificationAlertOut,
+    NotificationPreferenceOut,
+    NotificationPreferenceUpdate,
+)
 from app.services.aqi_service import fetch_air_quality_and_weather
 
 router = APIRouter(prefix="/notifications", tags=["Smart Notifications & Alerts"])
@@ -46,7 +51,7 @@ async def get_preferences(
     )
 
 
-@router.put("/preferences", response_model=dict)
+@router.put("/preferences", response_model=DetailMessageResponse)
 async def update_preferences(
     updates: Optional[NotificationPreferenceUpdate] = Body(default=None),
     high_aqi_alert: Optional[bool] = None,
@@ -95,7 +100,7 @@ async def update_preferences(
     return {"detail": "Notification settings updated"}
 
 
-@router.get("/active-alerts")
+@router.get("/active-alerts", response_model=List[NotificationAlertOut])
 async def get_active_alerts(
     lat: float = Query(28.6139, ge=-90.0, le=90.0),
     lon: float = Query(77.2090, ge=-180.0, le=180.0),

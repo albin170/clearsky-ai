@@ -10,8 +10,8 @@ export const DailyForecastList: React.FC = () => {
   return (
     <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl">
       <div className="flex items-center space-x-2 mb-4">
-        <Calendar className="w-5 h-5 text-teal-400" />
-        <h3 className="font-extrabold text-base text-white">7-Day Atmospheric Outlook</h3>
+        <Calendar className="w-5 h-5 text-teal-400" aria-hidden="true" />
+        <h2 className="font-extrabold text-base text-white">7-Day Atmospheric Outlook</h2>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -28,7 +28,7 @@ export const DailyForecastList: React.FC = () => {
               }`}
             >
               <div className="text-xs font-bold text-neutral-300">{d.date}</div>
-              <CloudSun className="w-5 h-5 text-neutral-400 my-2" />
+              <CloudSun className="w-5 h-5 text-neutral-400 my-2" aria-hidden="true" />
               <div className={`text-xl font-black ${isHigh ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {aqi}
               </div>

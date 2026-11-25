@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Map as MapIcon, Compass, MapPin, CheckCircle2 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, Compass, Map as MapIcon, MapPin } from 'lucide-react';
 import { useLocation } from '../../context/hooks';
 import { api } from '../../services/api';
 import type { CleanRouteResponse } from '../../types';
@@ -9,34 +9,18 @@ export const MapView: React.FC = () => {
 
   const [mode, setMode] = useState<'walking' | 'cycling'>('walking');
   const [routeResult, setRouteResult] = useState<CleanRouteResponse | null>(null);
-  const [selectedRouteIdx, setSelectedRouteIdx] = useState(1); // default to Green Route
+  const [selectedRouteIdx, setSelectedRouteIdx] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handlePlanRoute = useCallback(
-    async (targetMode: 'walking' | 'cycling' = mode) => {
-      setIsLoading(true);
-      try {
-        const res = await api.planCleanRoute(
-          currentLat,
-          currentLon,
-          currentLat + 0.025,
-          currentLon + 0.020,
-          targetMode,
-        );
-        setRouteResult(res);
-      } catch {
-        setRouteResult(null);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [currentLat, currentLon, mode],
+  const fetchRoute = useCallback(
+    (targetMode: 'walking' | 'cycling') =>
+      api.planCleanRoute(currentLat, currentLon, currentLat + 0.025, currentLon + 0.02, targetMode),
+    [currentLat, currentLon],
   );
 
   useEffect(() => {
     let active = true;
-    api
-      .planCleanRoute(currentLat, currentLon, currentLat + 0.025, currentLon + 0.020, mode)
+    fetchRoute(mode)
       .then((res) => {
         if (active) setRouteResult(res);
       })
@@ -49,12 +33,16 @@ export const MapView: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [currentCity, currentLat, currentLon, mode]);
+  }, [currentCity, mode, fetchRoute]);
+
+  const handleSelectMode = (targetMode: 'walking' | 'cycling') => {
+    setIsLoading(true);
+    setMode(targetMode);
+  };
 
   const baseAqi = airQuality?.current.aqi_in || 160;
   const basePm25 = airQuality?.current.pm2_5 || 65.0;
 
-  // Distinguish live primary hub telemetry from modeled micro-airshed dispersion corridors
   const stations = [
     {
       name: `${currentCity} Central Hub`,
@@ -81,20 +69,18 @@ export const MapView: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl flex items-center space-x-3">
         <div className="p-2.5 rounded-xl bg-teal-600/20 text-teal-300 border border-teal-500/30">
           <MapIcon className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-white">Pollution Hotspot &amp; Clean-Air Route Map</h2>
+          <h1 className="text-xl font-extrabold text-white">Pollution Hotspot &amp; Clean-Air Route Map</h1>
           <p className="text-xs text-neutral-400 mt-0.5">
             Live baseline reanalysis telemetry, modeled spatial particulate variance, and low-exposure walking &amp; cycling corridors
           </p>
         </div>
       </div>
 
-      {/* Monitoring Stations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {stations.map((s, idx) => (
           <div
@@ -112,12 +98,13 @@ export const MapView: React.FC = () => {
             </div>
             <div className="text-right">
               <span
-                className={`text-xl font-black ${s.aqi > 200 ? 'text-rose-400' : s.aqi > 100 ? 'text-amber-400' : 'text-emerald-400'
-                  }`}
+                className={`text-xl font-black ${
+                  s.aqi > 200 ? 'text-rose-400' : s.aqi > 100 ? 'text-amber-400' : 'text-emerald-400'
+                }`}
               >
                 {s.aqi}
               </span>
-              <div className="text-[10px] uppercase font-bold text-neutral-500">
+              <div className="text-[10px] uppercase font-bold text-neutral-400">
                 {s.isModeled ? 'Est. AQI' : 'Live AQI'}
               </div>
             </div>
@@ -125,24 +112,23 @@ export const MapView: React.FC = () => {
         ))}
       </div>
 
-      {/* Clean Route Planner Card */}
-      <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-6">
+      <section aria-labelledby="route-planner-heading" className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-4">
           <div className="flex items-center space-x-2">
             <Compass className="w-5 h-5 text-teal-400" aria-hidden="true" />
-            <h3 className="font-extrabold text-base text-white">Smart Clean-Air Route Planner</h3>
+            <h2 id="route-planner-heading" className="font-extrabold text-base text-white">
+              Smart Clean-Air Route Planner
+            </h2>
           </div>
           <div className="flex space-x-2" role="group" aria-label="Commute Mode">
             <button
               type="button"
               disabled={isLoading}
               aria-pressed={mode === 'walking'}
-              onClick={() => {
-                setMode('walking');
-                void handlePlanRoute('walking');
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${mode === 'walking' ? 'bg-teal-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                }`}
+              onClick={() => handleSelectMode('walking')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                mode === 'walking' ? 'bg-teal-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+              }`}
             >
               Walking
             </button>
@@ -150,19 +136,16 @@ export const MapView: React.FC = () => {
               type="button"
               disabled={isLoading}
               aria-pressed={mode === 'cycling'}
-              onClick={() => {
-                setMode('cycling');
-                void handlePlanRoute('cycling');
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${mode === 'cycling' ? 'bg-teal-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                }`}
+              onClick={() => handleSelectMode('cycling')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                mode === 'cycling' ? 'bg-teal-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+              }`}
             >
               Cycling
             </button>
           </div>
         </div>
 
-        {/* Route options comparison */}
         {routeResult && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -175,18 +158,20 @@ export const MapView: React.FC = () => {
                     key={idx}
                     onClick={() => setSelectedRouteIdx(idx)}
                     aria-pressed={isSelected}
-                    className={`p-5 rounded-2xl text-left transition border ${isSelected
+                    className={`p-5 rounded-2xl text-left transition border ${
+                      isSelected
                         ? isGreen
                           ? 'bg-emerald-950/40 border-emerald-500 shadow-lg shadow-emerald-950/50'
                           : 'bg-neutral-800/80 border-neutral-600 shadow'
                         : 'bg-neutral-950/60 border-neutral-800 hover:border-neutral-700'
-                      }`}
+                    }`}
                   >
                     <div className="flex items-center justify-between mb-2 gap-2">
                       <span className="font-bold text-sm text-white">{r.name}</span>
                       <span
-                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${isGreen ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                          }`}
+                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          isGreen ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                        }`}
                       >
                         {r.pollution_exposure_label}
                       </span>
@@ -215,7 +200,6 @@ export const MapView: React.FC = () => {
               })}
             </div>
 
-            {/* Spatial Schematic Preview */}
             <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2">
               <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
                 <span>Spatial Waypoint Map Visualization</span>
@@ -242,7 +226,7 @@ export const MapView: React.FC = () => {
                   </text>
                 </svg>
               </div>
-              <div className="text-[11px] text-neutral-500 flex justify-between px-2">
+              <div className="text-[11px] text-neutral-400 flex justify-between px-2">
                 <span className="text-emerald-400 font-semibold">— Green Curve: Low-Exposure Buffer Route</span>
                 <span className="text-rose-400 font-semibold">- - Red Line: High-Traffic Arterial Corridor</span>
               </div>
@@ -252,15 +236,10 @@ export const MapView: React.FC = () => {
               {routeResult.guidance}
             </p>
 
-            <p className="text-[11px] text-neutral-500 italic">{routeResult.disclaimer}</p>
+            <p className="text-[11px] text-neutral-400 italic">{routeResult.disclaimer}</p>
           </div>
         )}
-      </div>
+      </section>
     </div>
-  );
-};
-        )}
-      </div >
-    </div >
   );
 };

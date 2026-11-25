@@ -1,28 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { en } from '../locales/en';
 import { ml } from '../locales/ml';
 import { LanguageContext, type Language } from './hooks';
 
-type TranslationTree = Record<string, unknown>;
+type TranslationNode = string | { readonly [key: string]: TranslationNode };
+
+function resolveInitialLanguage(): Language {
+  if (typeof localStorage === 'undefined') return 'en';
+  const saved = localStorage.getItem('clearsky_lang');
+  return saved === 'ml' ? 'ml' : 'en';
+}
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(
-    () => (localStorage.getItem('clearsky_lang') as Language) || 'en',
-  );
+  const [language, setLanguageState] = useState<Language>(resolveInitialLanguage);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+    }
+  }, [language]);
 
   const setLanguage = (lang: Language) => {
-    localStorage.setItem('clearsky_lang', lang);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('clearsky_lang', lang);
+    }
     setLanguageState(lang);
   };
 
-  const translations: TranslationTree = (language === 'ml' ? ml : en) as unknown as TranslationTree;
+  const translations: TranslationNode = language === 'ml' ? ml : en;
 
   const t = (path: string): string => {
     const keys = path.split('.');
-    let current: unknown = translations;
+    let current: TranslationNode = translations;
     for (const key of keys) {
-      if (current && typeof current === 'object' && key in (current as TranslationTree)) {
-        current = (current as TranslationTree)[key];
+      if (typeof current === 'object' && current !== null && key in current) {
+        current = current[key];
       } else {
         return path;
       }

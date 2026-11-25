@@ -14,15 +14,14 @@ export const WeatherCorrelationCard: React.FC = () => {
     <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-extrabold text-base text-white">Meteorological &amp; Inversion Dynamics</h3>
+          <h2 className="font-extrabold text-base text-white">Meteorological &amp; Inversion Dynamics</h2>
           <p className="text-xs text-neutral-400">Atmospheric dispersion conditions in your immediate airshed</p>
         </div>
         <span
-          className={`px-2.5 py-1 text-xs font-black uppercase rounded-lg border ${
-            isInversionProne
+          className={`px-2.5 py-1 text-xs font-black uppercase rounded-lg border ${isInversionProne
               ? 'bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse'
               : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-          }`}
+            }`}
         >
           {isInversionProne ? 'HIGH INVERSION RISK' : 'NORMAL DISPERSION'}
         </span>

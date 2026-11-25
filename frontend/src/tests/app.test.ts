@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { en } from '../locales/en.ts';
-import { ml } from '../locales/ml.ts';
-import { FALLBACK_REELS } from '../data/fallbackReels.ts';
-import { api } from '../services/api.ts';
+import { en } from '../locales/en';
+import { ml } from '../locales/ml';
+import { FALLBACK_REELS } from '../data/fallbackReels';
+import { MONITORING_CITIES } from '../constants/cities';
+import { api } from '../services/api';
 
 function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   const keys: string[] = [];
@@ -18,11 +19,23 @@ function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   return keys.sort();
 }
 
-test('bilingual localization en.ts and ml.ts have complete key parity', () => {
+test('bilingual localization en.ts and ml.ts have complete key parity including prediction nav', () => {
   const enKeys = collectKeys(en as unknown as Record<string, unknown>);
   const mlKeys = collectKeys(ml as unknown as Record<string, unknown>);
   assert.deepEqual(mlKeys, enKeys, 'English and Malayalam translation trees must contain identical keys');
+  assert.ok(enKeys.includes('nav.prediction'));
   assert.ok(enKeys.length > 80, 'Expected rich translation coverage across all modules');
+});
+
+test('monitoring cities constants have valid geographic bounds and unique names', () => {
+  assert.ok(MONITORING_CITIES.length >= 8);
+  const names = new Set<string>();
+  for (const c of MONITORING_CITIES) {
+    assert.ok(!names.has(c.name));
+    names.add(c.name);
+    assert.ok(c.lat >= -90 && c.lat <= 90);
+    assert.ok(c.lon >= -180 && c.lon <= 180);
+  }
 });
 
 test('fallback EcoReels dataset has valid schema, safe media paths, and unique IDs', () => {
@@ -40,7 +53,7 @@ test('fallback EcoReels dataset has valid schema, safe media paths, and unique I
   }
 });
 
-test('api service sends expected requests, headers, JSON bodies, and throws descriptive errors', async () => {
+test('api service sends expected requests, headers, JSON bodies, handles 401 gracefully, and propagates errors', async () => {
   const store = new Map<string, string>();
   store.set('clearsky_token', 'test-jwt-token');
   (globalThis as unknown as { localStorage: unknown }).localStorage = {
@@ -60,7 +73,14 @@ test('api service sends expected requests, headers, JSON bodies, and throws desc
       return new Response(
         JSON.stringify({
           access_token: 'tok_123',
-          user: { id: 1, email: 'user@clearsky.ai', full_name: 'Test User', role: 'standard_user', preferred_language: 'en', created_at: '2026-01-01T00:00:00Z' },
+          user: {
+            id: 1,
+            email: 'user@clearsky.ai',
+            full_name: 'Test User',
+            role: 'standard_user',
+            preferred_language: 'en',
+            created_at: '2026-01-01T00:00:00Z',
+          },
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
@@ -73,6 +93,13 @@ test('api service sends expected requests, headers, JSON bodies, and throws desc
       });
     }
 
+    if (url.includes('/family/members') && !init?.method) {
+      return new Response(JSON.stringify({ detail: 'Not authenticated' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (url.includes('/reels/reel-1/like')) {
       return new Response(JSON.stringify({ id: 'reel-1', is_liked: true, likes_count: 14281 }), {
         status: 200,
@@ -80,7 +107,7 @@ test('api service sends expected requests, headers, JSON bodies, and throws desc
       });
     }
 
-    if (url.includes('/fail-endpoint') || url.includes('/admin/health')) {
+    if (url.includes('/admin/health')) {
       return new Response(JSON.stringify({ detail: 'Forbidden access' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -94,12 +121,10 @@ test('api service sends expected requests, headers, JSON bodies, and throws desc
   }) as typeof fetch;
 
   try {
-    // 1. Auth login
     const loginRes = await api.login({ email: 'user@clearsky.ai', password: 'Password123!' });
     assert.equal(loginRes.access_token, 'tok_123');
     assert.equal(calls[0].init?.method, 'POST');
 
-    // 2. Notification preferences PUT includes Authorization header and JSON body
     const prefRes = await api.updateNotificationPreferences({ aqi_threshold: 175, quiet_hours_start: '22:30' });
     assert.equal(prefRes.detail, 'Notification settings updated');
     const prefCall = calls[1];
@@ -107,12 +132,14 @@ test('api service sends expected requests, headers, JSON bodies, and throws desc
     assert.equal(prefHeaders['Authorization'], 'Bearer test-jwt-token');
     assert.deepEqual(JSON.parse(String(prefCall.init?.body)), { aqi_threshold: 175, quiet_hours_start: '22:30' });
 
-    // 3. EcoReel like toggle
+    // Unauthenticated 401 returns empty list cleanly for optional household member fetch
+    const members = await api.getFamilyMembers();
+    assert.deepEqual(members, []);
+
     const likeRes = await api.toggleReelLike('reel-1');
     assert.equal(likeRes.is_liked, true);
     assert.equal(likeRes.likes_count, 14281);
 
-    // 4. Error handling propagates backend detail message cleanly
     await assert.rejects(() => api.getAdminHealth(), /Forbidden access/);
   } finally {
     globalThis.fetch = originalFetch;

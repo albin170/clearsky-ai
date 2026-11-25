@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Home, Plus, Wind, AlertTriangle, Trash2, CheckCircle2, Info } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Home, Info, Plus, Trash2, Wind } from 'lucide-react';
 import { api } from '../../services/api';
 import { useLocation } from '../../context/hooks';
-import type { RoomAssessment, VentilationWindowAdvice } from '../../types';
+import type { RoomAssessment, RoomAssessmentCreateInput, VentilationWindowAdvice } from '../../types';
+import { RoomAssessmentModal } from './RoomAssessmentModal';
 
 export const IndoorView: React.FC = () => {
   const { airQuality } = useLocation();
@@ -11,36 +12,33 @@ export const IndoorView: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [referenceRoomSize, setReferenceRoomSize] = useState(160);
 
-  // Form state
-  const [roomName, setRoomName] = useState('Master Bedroom');
-  const [roomSize, setRoomSize] = useState(160);
-  const [occupants, setOccupants] = useState(2);
-  const [ventilationType, setVentilationType] = useState('cross_windows');
-  const [hasPurifier, setHasPurifier] = useState(true);
-  const [filterType, setFilterType] = useState('hepa_h13');
-  const [cookingExposure, setCookingExposure] = useState('low');
-  const [sensorPm25, setSensorPm25] = useState<string>('');
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const fetchIndoorBundle = useCallback(
+    (targetSize: number) => {
       const outdoorAqi = airQuality?.current.aqi_in || 160;
-      const [roomsData, adviceData] = await Promise.all([
-        api.getRoomAssessments(),
-        api.getVentilationAdvice(roomSize, outdoorAqi),
-      ]);
-      setRooms(roomsData);
-      setVentilationAdvice(adviceData);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [airQuality, roomSize]);
+      return Promise.all([api.getRoomAssessments(), api.getVentilationAdvice(targetSize, outdoorAqi)]);
+    },
+    [airQuality],
+  );
+
+  const loadData = useCallback(
+    async (targetSize = referenceRoomSize) => {
+      setIsLoading(true);
+      try {
+        const [roomsData, adviceData] = await fetchIndoorBundle(targetSize);
+        setRooms(roomsData);
+        setVentilationAdvice(adviceData);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchIndoorBundle, referenceRoomSize],
+  );
 
   useEffect(() => {
     let active = true;
-    const outdoorAqi = airQuality?.current.aqi_in || 160;
-    Promise.all([api.getRoomAssessments(), api.getVentilationAdvice(roomSize, outdoorAqi)])
+    fetchIndoorBundle(referenceRoomSize)
       .then(([roomsData, adviceData]) => {
         if (!active) return;
         setRooms(roomsData);
@@ -52,24 +50,15 @@ export const IndoorView: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [airQuality, roomSize]);
+  }, [fetchIndoorBundle, referenceRoomSize]);
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateRoom = async (input: RoomAssessmentCreateInput) => {
     try {
-      await api.createRoomAssessment({
-        room_name: roomName,
-        room_size_sqft: Number(roomSize),
-        occupants: Number(occupants),
-        ventilation_type: ventilationType,
-        has_purifier: hasPurifier,
-        purifier_filter_type: filterType,
-        cooking_smoke_exposure: cookingExposure,
-        sensor_pm25: sensorPm25 ? Number(sensorPm25) : undefined,
-      });
+      await api.createRoomAssessment(input);
+      setReferenceRoomSize(input.room_size_sqft);
       setIsAddOpen(false);
       setStatusMessage('Room assessment calculated and saved.');
-      await loadData();
+      await loadData(input.room_size_sqft);
     } catch (err: unknown) {
       setStatusMessage(err instanceof Error ? err.message : 'Sign in to save room assessments.');
     }
@@ -94,7 +83,7 @@ export const IndoorView: React.FC = () => {
             <Home className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-white">Indoor Air Quality Optimizer</h2>
+            <h1 className="text-xl font-extrabold text-white">Indoor Air Quality Optimizer</h1>
             <p className="text-xs text-neutral-400 mt-0.5">
               Room health modeling, CADR airflow calculations, and diurnal window ventilation scheduling
             </p>
@@ -112,7 +101,11 @@ export const IndoorView: React.FC = () => {
       </div>
 
       {statusMessage && (
-        <div role="status" className="p-3 rounded-xl bg-teal-950/50 border border-teal-500/30 text-xs text-teal-200 flex items-center justify-between">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-3 rounded-xl bg-teal-950/50 border border-teal-500/30 text-xs text-teal-200 flex items-center justify-between"
+        >
           <span>{statusMessage}</span>
           <button type="button" onClick={() => setStatusMessage(null)} className="underline ml-4">
             Dismiss
@@ -120,13 +113,14 @@ export const IndoorView: React.FC = () => {
         </div>
       )}
 
-      {/* Ventilation Window Advisory */}
       {ventilationAdvice && (
-        <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
+        <section aria-labelledby="ventilation-heading" className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
             <div className="flex items-center space-x-2">
               <Wind className="w-5 h-5 text-teal-400" aria-hidden="true" />
-              <h3 className="font-extrabold text-base text-white">Diurnal Window Ventilation Advisory</h3>
+              <h2 id="ventilation-heading" className="font-extrabold text-base text-white">
+                Diurnal Window Ventilation Advisory
+              </h2>
             </div>
             <span className="text-xs font-mono text-teal-400">
               Recommended Purifier CADR: {ventilationAdvice.air_purifier_cadre_recommendation_cfm} CFM
@@ -172,11 +166,11 @@ export const IndoorView: React.FC = () => {
           <p className="text-xs text-neutral-300 bg-neutral-950/70 p-3 rounded-xl border border-neutral-800 leading-relaxed">
             {ventilationAdvice.recommendation_text}
           </p>
-        </div>
+        </section>
       )}
 
       {isLoading && (
-        <div role="status" className="p-4 text-xs text-neutral-400">
+        <div role="status" aria-live="polite" className="p-4 text-xs text-neutral-400">
           Calculating indoor filtration and ventilation metrics...
         </div>
       )}
@@ -193,7 +187,7 @@ export const IndoorView: React.FC = () => {
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-extrabold text-lg text-white">{r.room_name}</h3>
+                    <h2 className="font-extrabold text-lg text-white">{r.room_name}</h2>
                     <div className="text-xs text-neutral-400 mt-0.5">
                       {r.room_size_sqft} sq ft • {r.occupants} occupants • {r.ventilation_type.replace('_', ' ')}
                     </div>
@@ -201,13 +195,12 @@ export const IndoorView: React.FC = () => {
                   <div className="text-right">
                     <div className="text-2xl font-black" style={{ color: scoreColor }}>
                       {r.calculated_score}
-                      <span className="text-xs font-normal text-neutral-500">/100</span>
+                      <span className="text-xs font-normal text-neutral-400">/100</span>
                     </div>
                     <div className="text-[10px] font-bold uppercase text-neutral-400">Health Index</div>
                   </div>
                 </div>
 
-                {/* Badges */}
                 <div className="flex flex-wrap gap-2 mt-3">
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -223,7 +216,6 @@ export const IndoorView: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Recommendations */}
                 <div className="mt-4 space-y-2 border-t border-neutral-800/80 pt-3">
                   <span className="text-xs font-bold text-neutral-300">Actionable Architectural Guidance:</span>
                   <ul className="space-y-1.5 text-xs text-neutral-400">
@@ -239,12 +231,12 @@ export const IndoorView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-500">
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-400">
                 <span>AHAM CADR Target: {Math.round((2 / 3) * r.room_size_sqft)} CFM</span>
                 <button
                   type="button"
                   onClick={() => void handleDeleteRoom(r.id)}
-                  className="text-neutral-500 hover:text-red-400 transition"
+                  className="p-1.5 text-neutral-400 hover:text-red-400 rounded-lg transition"
                   title="Delete Room Assessment"
                   aria-label={`Delete room assessment for ${r.room_name}`}
                 >
@@ -257,177 +249,22 @@ export const IndoorView: React.FC = () => {
 
         {!isLoading && rooms.length === 0 && (
           <div className="col-span-full p-8 rounded-2xl bg-neutral-950/60 border border-dashed border-neutral-800 text-center space-y-2">
-            <Home className="w-8 h-8 text-neutral-600 mx-auto" aria-hidden="true" />
+            <Home className="w-8 h-8 text-neutral-500 mx-auto" aria-hidden="true" />
             <div className="text-sm font-semibold text-neutral-300">No rooms assessed yet</div>
-            <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+            <p className="text-xs text-neutral-400 max-w-sm mx-auto">
               Analyze your bedrooms, living room, and study to receive custom airflow and filtration recommendations.
             </p>
           </div>
         )}
       </div>
 
-      {/* Add Room Modal */}
-      {isAddOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="indoor-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-        >
-          <div className="w-full max-w-md rounded-2xl bg-neutral-900 border border-neutral-700 p-6 text-white space-y-4">
-            <h3 id="indoor-modal-title" className="text-lg font-bold">
-              Room Health Planner
-            </h3>
+      <RoomAssessmentModal
+        isOpen={isAddOpen}
+        defaultRoomSize={referenceRoomSize}
+        onClose={() => setIsAddOpen(false)}
+        onCreate={handleCreateRoom}
+      />
 
-            <form onSubmit={handleCreateRoom} className="space-y-3">
-              <div>
-                <label htmlFor="indoor-room-name" className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Room Name
-                </label>
-                <input
-                  id="indoor-room-name"
-                  type="text"
-                  required
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  placeholder="Master Bedroom, Living Room, etc."
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="indoor-room-size" className="block text-xs font-semibold text-neutral-300 mb-1">
-                    Area (sq ft)
-                  </label>
-                  <input
-                    id="indoor-room-size"
-                    type="number"
-                    required
-                    min={10}
-                    value={roomSize}
-                    onChange={(e) => setRoomSize(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="indoor-occupants" className="block text-xs font-semibold text-neutral-300 mb-1">
-                    Occupants
-                  </label>
-                  <input
-                    id="indoor-occupants"
-                    type="number"
-                    required
-                    min={1}
-                    value={occupants}
-                    onChange={(e) => setOccupants(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="indoor-ventilation" className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Ventilation Architecture
-                </label>
-                <select
-                  id="indoor-ventilation"
-                  value={ventilationType}
-                  onChange={(e) => setVentilationType(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                >
-                  <option value="cross_windows">Cross-ventilation (Opposing Windows)</option>
-                  <option value="single_window">Single Window Only</option>
-                  <option value="sealed_ac">Sealed Room with Air Conditioner</option>
-                  <option value="exhaust_only">Exhaust Fan Only</option>
-                </select>
-              </div>
-
-              <div className="flex items-center space-x-3 pt-1">
-                <input
-                  type="checkbox"
-                  id="hasPurifier"
-                  checked={hasPurifier}
-                  onChange={(e) => setHasPurifier(e.target.checked)}
-                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 bg-neutral-950 border-neutral-700"
-                />
-                <label htmlFor="hasPurifier" className="text-xs font-semibold text-neutral-200 cursor-pointer">
-                  Air Purifier is Installed
-                </label>
-              </div>
-
-              {hasPurifier && (
-                <div>
-                  <label htmlFor="indoor-filter-type" className="block text-xs font-semibold text-neutral-300 mb-1">
-                    Filter Grade
-                  </label>
-                  <select
-                    id="indoor-filter-type"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                  >
-                    <option value="hepa_h13">Certified HEPA H13 (99.97% 0.3µm)</option>
-                    <option value="basic">Standard Coarse Mesh Filter</option>
-                    <option value="carbon">Activated Carbon Deodorizing Filter</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="indoor-cooking-exposure" className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Cooking Smoke Infiltration
-                </label>
-                <select
-                  id="indoor-cooking-exposure"
-                  value={cookingExposure}
-                  onChange={(e) => setCookingExposure(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                >
-                  <option value="low">Low (Far from kitchen or chimney installed)</option>
-                  <option value="moderate">Moderate (Nearby open kitchen)</option>
-                  <option value="high">High (No chimney, regular frying/tadka smoke)</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="indoor-sensor-pm25" className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Optional Physical Sensor PM2.5 (µg/m³)
-                </label>
-                <input
-                  id="indoor-sensor-pm25"
-                  type="number"
-                  min={0}
-                  max={2000}
-                  step={0.1}
-                  value={sensorPm25}
-                  onChange={(e) => setSensorPm25(e.target.value)}
-                  placeholder="e.g. 22.5 (leave blank if no sensor)"
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
-                />
-              </div>
-
-              <div className="flex space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="flex-1 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-900/30"
-                >
-                  Compute Health Index
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Sensor disclaimer */}
       <div className="p-4 rounded-xl bg-neutral-950/70 border border-neutral-800 text-xs text-neutral-400 flex items-start space-x-2.5">
         <Info className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" aria-hidden="true" />
         <p>

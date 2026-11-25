@@ -7,8 +7,8 @@
     --bg-card: #182d2a;
     --bg-card-hover: #1f3834;
     --text-primary: #f0fdf4;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
     --accent-mint: #2dd4bf;
     --accent-emerald: #10b981;
     --accent-sky: #38bdf8;
@@ -21,31 +21,31 @@
     --bg-primary: #f8fafc;
     --bg-secondary: #f1f5f9;
     --bg-card: #ffffff;
-    --bg-card-hover: #f8fafc;
+    --bg-card-hover: #f1f5f9;
     --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #94a3b8;
-    --accent-mint: #0d9488;
-    --accent-emerald: #059669;
-    --accent-sky: #0284c7;
-    --accent-amber: #d97706;
-    --accent-rose: #e11d48;
-    --border-subtle: #e2e8f0;
+    --text-secondary: #334155;
+    --text-muted: #475569;
+    --accent-mint: #0f766e;
+    --accent-emerald: #047857;
+    --accent-sky: #0369a1;
+    --accent-amber: #b45309;
+    --accent-rose: #be123c;
+    --border-subtle: #cbd5e1;
   }
 
   .theme-contrast {
     --bg-primary: #000000;
     --bg-secondary: #0a0a0a;
-    --bg-card: #121212;
-    --bg-card-hover: #1f1f1f;
+    --bg-card: #0f0f0f;
+    --bg-card-hover: #1a1a1a;
     --text-primary: #ffffff;
-    --text-secondary: #e2e8f0;
-    --text-muted: #cbd5e1;
+    --text-secondary: #f1f5f9;
+    --text-muted: #e2e8f0;
     --accent-mint: #00ffcc;
     --accent-emerald: #00ff66;
     --accent-sky: #00e5ff;
     --accent-amber: #ffcc00;
-    --accent-rose: #ff0055;
+    --accent-rose: #ff3377;
     --border-subtle: #ffffff;
   }
 
@@ -59,11 +59,79 @@
     min-height: 100vh;
   }
 
-  /* WCAG 2.2 AA visible keyboard focus indicator */
+  /* WCAG 2.2 AA visible keyboard focus indicator (>= 3:1 contrast) */
   :focus-visible {
     outline: 2px solid var(--accent-mint);
     outline-offset: 2px;
   }
+}
+
+/* Ensure WCAG 2.2 AA >= 4.5:1 text contrast on neutral dark surfaces */
+.text-neutral-500 {
+  color: #a3a3a3;
+}
+
+/* Light theme surface & typography adaptation outside dark video overlays */
+body.theme-light .app-shell {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+body.theme-light :not(.reel-player-stage) > .bg-neutral-950,
+body.theme-light .bg-neutral-950\/95,
+body.theme-light .bg-neutral-950\/80,
+body.theme-light .bg-neutral-950\/70,
+body.theme-light .bg-neutral-950\/60 {
+  background-color: #f1f5f9;
+}
+
+body.theme-light .bg-neutral-900,
+body.theme-light .bg-neutral-900\/90,
+body.theme-light .bg-neutral-900\/80,
+body.theme-light .bg-neutral-900\/50 {
+  background-color: #ffffff;
+}
+
+body.theme-light .bg-neutral-800,
+body.theme-light .bg-neutral-800\/80 {
+  background-color: #e2e8f0;
+}
+
+body.theme-light .app-shell :not(.reel-player-stage):not(.reel-player-stage *) {
+  border-color: #cbd5e1;
+}
+
+body.theme-light .app-shell .text-white:not(.bg-teal-600 *):not(.bg-teal-600):not(.bg-red-600):not(.bg-rose-600):not(.bg-purple-600):not(.reel-player-stage *),
+body.theme-light .app-shell .text-neutral-100:not(.reel-player-stage *),
+body.theme-light .app-shell .text-neutral-200:not(.reel-player-stage *) {
+  color: #0f172a;
+}
+
+body.theme-light .app-shell .text-neutral-300:not(.reel-player-stage *),
+body.theme-light .app-shell .text-neutral-400:not(.reel-player-stage *),
+body.theme-light .app-shell .text-neutral-500:not(.reel-player-stage *) {
+  color: #334155;
+}
+
+body.theme-light .app-shell .text-teal-300:not(.reel-player-stage *),
+body.theme-light .app-shell .text-teal-400:not(.reel-player-stage *) {
+  color: #0f766e;
+}
+
+/* High-contrast theme overrides (>= 7:1 AAA contrast) */
+body.theme-contrast .app-shell {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+body.theme-contrast .text-neutral-400,
+body.theme-contrast .text-neutral-500 {
+  color: #e5e5e5;
+}
+
+body.theme-contrast .border-neutral-800,
+body.theme-contrast .border-neutral-700 {
+  border-color: #a3a3a3;
 }
 
 /* Reduced motion support for vestibular / motion sensitivity */

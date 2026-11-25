@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "jsx": "react-jsx",
+    "outDir": "./.test-dist",
+    "rootDir": "./src",
+    "types": ["node"]
+  },
+  "include": ["src/tests/**/*.ts", "src/tests/**/*.tsx"]
+}

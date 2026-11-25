@@ -39,8 +39,12 @@ import type {
   ReelCommentResponse,
 } from '../types';
 
-const envMeta = import.meta as unknown as { env?: Record<string, string | undefined> };
-const API_BASE = envMeta.env?.VITE_API_BASE_URL || '/api/v1';
+declare const __CLEARSKY_API_BASE__: string | undefined;
+
+const API_BASE =
+  (typeof __CLEARSKY_API_BASE__ !== 'undefined' && __CLEARSKY_API_BASE__) ||
+  (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
+  '/api/v1';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('clearsky_token') : null;
@@ -181,8 +185,8 @@ export const api = {
   // Family
   async getFamilyMembers(): Promise<FamilyMember[]> {
     const res = await fetch(`${API_BASE}/family/members`, { headers: getAuthHeaders() });
-    if (!res.ok) return [];
-    return res.json() as Promise<FamilyMember[]>;
+    if (res.status === 401 || res.status === 403) return [];
+    return handleResponse<FamilyMember[]>(res, 'Failed to load family members');
   },
 
   async addFamilyMember(data: FamilyMemberCreateInput): Promise<FamilyMember> {
@@ -213,8 +217,8 @@ export const api = {
   // Indoor
   async getRoomAssessments(): Promise<RoomAssessment[]> {
     const res = await fetch(`${API_BASE}/indoor/assessments`, { headers: getAuthHeaders() });
-    if (!res.ok) return [];
-    return res.json() as Promise<RoomAssessment[]>;
+    if (res.status === 401 || res.status === 403) return [];
+    return handleResponse<RoomAssessment[]>(res, 'Failed to load room assessments');
   },
 
   async createRoomAssessment(data: RoomAssessmentCreateInput): Promise<RoomAssessment> {
@@ -244,8 +248,8 @@ export const api = {
   // Routine
   async getMyRoutine(): Promise<RoutineOut | null> {
     const res = await fetch(`${API_BASE}/routine/my-routine`, { headers: getAuthHeaders() });
-    if (!res.ok) return null;
-    return res.json() as Promise<RoutineOut | null>;
+    if (res.status === 401 || res.status === 403) return null;
+    return handleResponse<RoutineOut | null>(res, 'Failed to load routine');
   },
 
   async generateRoutine(data: RoutineCreateInput): Promise<RoutineOut> {

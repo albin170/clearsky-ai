@@ -46,7 +46,7 @@ export const AirQualityTodayAI: React.FC = () => {
             <Sparkles className="w-5 h-5 animate-pulse" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="font-extrabold text-lg text-white">{t('dashboard.ai_summary_title')}</h2>
+            <h1 className="font-extrabold text-lg text-white">{t('dashboard.ai_summary_title')}</h1>
             <span className="text-xs text-teal-400 font-medium">Grounded Environmental Intelligence</span>
           </div>
         </div>
@@ -55,11 +55,10 @@ export const AirQualityTodayAI: React.FC = () => {
           type="button"
           onClick={handleSpeak}
           aria-pressed={isSpeaking}
-          className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-sm ${
-            isSpeaking
+          className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-sm ${isSpeaking
               ? 'bg-rose-600/20 text-rose-300 border-rose-500/40 animate-pulse'
               : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700'
-          }`}
+            }`}
           title="Listen to Audio Briefing"
         >
           {isSpeaking ? (

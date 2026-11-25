@@ -1,31 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Wind,
-  MapPin,
-  Navigation,
-  Globe,
-  Sun,
-  Moon,
-  Contrast,
-  ShieldAlert,
-  User as UserIcon,
-  LogOut,
   Check,
+  Contrast,
+  Globe,
+  LogOut,
+  MapPin,
+  Moon,
+  Navigation,
+  ShieldAlert,
+  Sun,
+  User as UserIcon,
+  Wind,
 } from 'lucide-react';
-import { useLocation, useLanguage, useTheme, useAuth } from '../../context/hooks';
+import { MONITORING_CITIES } from '../../constants/cities';
+import { useAuth, useLanguage, useLocation, useTheme } from '../../context/hooks';
 import { EmergencyModal } from '../emergency/EmergencyModal';
-
-const PRESET_CITIES = [
-  { name: 'Delhi NCR', lat: 28.6139, lon: 77.2090 },
-  { name: 'Mumbai', lat: 19.0760, lon: 72.8777 },
-  { name: 'Bengaluru', lat: 12.9716, lon: 77.5946 },
-  { name: 'Kochi', lat: 9.9312, lon: 76.2673 },
-  { name: 'Kolkata', lat: 22.5726, lon: 88.3639 },
-  { name: 'Chennai', lat: 13.0827, lon: 80.2707 },
-  { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
-  { name: 'London', lat: 51.5074, lon: -0.1278 },
-  { name: 'New York', lat: 40.7128, lon: -74.0060 },
-];
 
 interface NavbarProps {
   onOpenAuth: () => void;
@@ -33,11 +22,30 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   const { currentCity, airQuality, aqiStandard, setAqiStandard, setLocation, detectGeolocation } = useLocation();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isCityDropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsCityDropdownOpen(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsCityDropdownOpen(false);
+    };
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isCityDropdownOpen]);
 
   const aqi = aqiStandard === 'in' ? airQuality?.current.aqi_in : airQuality?.current.aqi_us;
   const aqiCategory = aqiStandard === 'in' ? airQuality?.current.category_in : airQuality?.current.category_us;
@@ -46,11 +54,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   return (
     <>
       <header
-        className="sticky top-0 z-40 w-full border-b border-subtle bg-primary/95 backdrop-blur-md px-4 lg:px-8 py-3 transition-colors duration-200"
+        className="sticky top-0 z-40 w-full border-b border-subtle backdrop-blur-md px-4 lg:px-8 py-3 transition-colors duration-200"
         style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-subtle)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Logo & Brand */}
           <div className="flex items-center space-x-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-lg shadow-teal-900/30">
               <Wind className="w-6 h-6 animate-pulse" aria-hidden="true" />
@@ -62,15 +69,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                   AI
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400 hidden sm:block">Urban Smog &amp; Environmental Intelligence</p>
+              <p className="text-[11px] text-neutral-400 hidden sm:block">{t('tagline')}</p>
             </div>
           </div>
 
           {/* Location Selector */}
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <button
               type="button"
-              onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+              onClick={() => setIsCityDropdownOpen((prev) => !prev)}
               aria-expanded={isCityDropdownOpen}
               aria-haspopup="listbox"
               aria-label={`Select monitoring city, currently ${currentCity}`}
@@ -99,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                   Select Monitoring Hub
                 </div>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
-                  {PRESET_CITIES.map((c) => (
+                  {MONITORING_CITIES.map((c) => (
                     <button
                       type="button"
                       role="option"
@@ -133,9 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
             )}
           </div>
 
-          {/* Action controls */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Standard Switcher: Indian NAQI vs US EPA */}
             <div
               role="group"
               aria-label="AQI Standard Selector"
@@ -163,11 +168,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               </button>
             </div>
 
-            {/* Emergency Smog Mode Button */}
             <button
               type="button"
               onClick={() => setIsEmergencyOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-black tracking-wider transition animate-pulse"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-black tracking-wider transition"
               title="Activate Emergency Winter Smog Defense Interface"
               aria-label="Activate Emergency Smog Defense Mode"
             >
@@ -175,7 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               <span className="hidden sm:inline">SMOG DEFENSE</span>
             </button>
 
-            {/* Language Switcher (EN / ML) */}
             <button
               type="button"
               onClick={() => setLanguage(language === 'en' ? 'ml' : 'en')}
@@ -187,7 +190,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               <span>{language === 'en' ? 'മലയാളം' : 'EN'}</span>
             </button>
 
-            {/* Theme Toggle (Dark / Light / High Contrast) */}
             <button
               type="button"
               onClick={toggleTheme}
@@ -196,11 +198,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               aria-label={`Toggle Theme (Current: ${theme})`}
             >
               {theme === 'dark' && <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />}
-              {theme === 'light' && <Contrast className="w-4 h-4 text-blue-400" aria-hidden="true" />}
+              {theme === 'light' && <Contrast className="w-4 h-4 text-blue-500" aria-hidden="true" />}
               {theme === 'contrast' && <Moon className="w-4 h-4 text-teal-300" aria-hidden="true" />}
             </button>
 
-            {/* Auth / Profile button */}
             {user ? (
               <div className="flex items-center space-x-2">
                 <div className="hidden lg:flex flex-col text-right">
@@ -211,8 +212,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                   type="button"
                   onClick={logout}
                   className="p-2 rounded-xl bg-neutral-900 hover:bg-red-950/60 hover:text-red-400 border border-neutral-700/60 text-neutral-300 transition"
-                  title="Sign Out"
-                  aria-label="Sign Out"
+                  title={t('auth.sign_out')}
+                  aria-label={t('auth.sign_out')}
                 >
                   <LogOut className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -224,17 +225,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
                 className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 font-bold text-white text-xs shadow-md shadow-teal-900/30 transition"
               >
                 <UserIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Sign In</span>
+                <span className="hidden sm:inline">{t('auth.sign_in')}</span>
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Emergency Mode Modal */}
       <EmergencyModal isOpen={isEmergencyOpen} onClose={() => setIsEmergencyOpen(false)} />
     </>
-  );
-};
   );
 };

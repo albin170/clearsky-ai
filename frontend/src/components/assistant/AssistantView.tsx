@@ -32,6 +32,13 @@ interface BrowserSpeechRecognition {
 
 type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 export const AssistantView: React.FC = () => {
   const { currentCity, currentLat, currentLon, airQuality } = useLocation();
   const { language } = useLanguage();
@@ -80,11 +87,7 @@ export const AssistantView: React.FC = () => {
   // Voice Input (Web Speech Recognition API)
   const handleToggleVoice = () => {
     setVoiceError(null);
-    const win = window as unknown as {
-      SpeechRecognition?: SpeechRecognitionConstructor;
-      webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    };
-    const SpeechRecognitionCtor = win.SpeechRecognition || win.webkitSpeechRecognition;
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) {
       setVoiceError('Speech Recognition is not supported by this browser. Please use Chrome or Edge.');
       return;
@@ -250,7 +253,7 @@ export const AssistantView: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="font-extrabold text-base text-white">ClearSky AI Assistant</h2>
+              <h1 className="font-extrabold text-base text-white">ClearSky AI Assistant</h1>
               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
                 Grounded Environmental RAG
               </span>
@@ -282,16 +285,14 @@ export const AssistantView: React.FC = () => {
           return (
             <div
               key={msg.id}
-              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1 max-w-3xl ${
-                isUser ? 'ml-auto' : 'mr-auto'
-              }`}
+              className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1 max-w-3xl ${isUser ? 'ml-auto' : 'mr-auto'
+                }`}
             >
               <div
-                className={`p-4 rounded-2xl text-sm leading-relaxed ${
-                  isUser
+                className={`p-4 rounded-2xl text-sm leading-relaxed ${isUser
                     ? 'bg-teal-600 text-white rounded-br-none shadow-md shadow-teal-900/30'
                     : 'bg-neutral-950 border border-neutral-800 text-neutral-100 rounded-bl-none shadow-lg'
-                }`}
+                  }`}
               >
                 {!isUser && (
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-800/80 text-xs text-teal-400 font-semibold">
@@ -396,11 +397,10 @@ export const AssistantView: React.FC = () => {
             onClick={handleToggleVoice}
             aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
             aria-pressed={isListening}
-            className={`p-2.5 rounded-xl border transition ${
-              isListening
+            className={`p-2.5 rounded-xl border transition ${isListening
                 ? 'bg-red-600/20 border-red-500 text-red-400 animate-pulse'
                 : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:text-white'
-            }`}
+              }`}
             title="Toggle Voice Input (Speech Recognition)"
           >
             {isListening ? <MicOff className="w-4 h-4" aria-hidden="true" /> : <Mic className="w-4 h-4 text-teal-400" aria-hidden="true" />}

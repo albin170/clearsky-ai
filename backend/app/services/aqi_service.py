@@ -9,6 +9,17 @@ from app.core.config import settings
 _AQI_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 CACHE_TTL = settings.AQI_CACHE_TTL_SECONDS
 
+
+def get_cached_locations_count() -> int:
+    """Return active count of unexpired coordinate entries in the AQI telemetry cache."""
+    now = time.time()
+    return sum(1 for ts, _ in _AQI_CACHE.values() if now - ts < CACHE_TTL)
+
+
+def clear_aqi_cache() -> None:
+    """Clear the in-memory AQI telemetry cache."""
+    _AQI_CACHE.clear()
+
 # CPCB Indian National AQI Breakpoints
 # (low_conc, high_conc, low_aqi, high_aqi)
 CPCB_BREAKPOINTS = {

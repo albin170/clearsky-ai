@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'family', label: t('nav.family'), icon: Users },
     { id: 'indoor', label: t('nav.indoor'), icon: Home },
     { id: 'routine', label: t('nav.routine'), icon: CalendarCheck },
-    { id: 'prediction', label: 'Predictions', icon: TrendingUp },
+    { id: 'prediction', label: t('nav.prediction'), icon: TrendingUp },
     { id: 'map', label: t('nav.map'), icon: Map },
     { id: 'community', label: t('nav.community'), icon: UsersRound },
     { id: 'impact', label: t('nav.impact'), icon: Award },
@@ -60,11 +60,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition ${
-                isActive
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition ${isActive
                   ? 'bg-teal-600/20 text-teal-300 border border-teal-500/30 shadow-sm'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
-              }`}
+                }`}
             >
               <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-teal-400' : 'text-neutral-400'}`} aria-hidden="true" />
@@ -90,11 +89,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             type="button"
             onClick={() => setActiveTab('admin')}
             aria-current={activeTab === 'admin' ? 'page' : undefined}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${
-              activeTab === 'admin'
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${activeTab === 'admin'
                 ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
-            }`}
+              }`}
           >
             <ShieldCheck className={`w-4 h-4 ${activeTab === 'admin' ? 'text-purple-400' : 'text-neutral-400'}`} aria-hidden="true" />
             <span>{t('nav.admin')}</span>
@@ -105,11 +103,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           type="button"
           onClick={() => setActiveTab('settings')}
           aria-current={activeTab === 'settings' ? 'page' : undefined}
-          className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${
-            activeTab === 'settings'
+          className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition ${activeTab === 'settings'
               ? 'bg-teal-600/20 text-teal-300 border border-teal-500/30'
               : 'text-neutral-400 hover:text-white hover:bg-neutral-900/60'
-          }`}
+            }`}
         >
           <Settings className={`w-4 h-4 ${activeTab === 'settings' ? 'text-teal-400' : 'text-neutral-400'}`} aria-hidden="true" />
           <span>{t('nav.settings')}</span>

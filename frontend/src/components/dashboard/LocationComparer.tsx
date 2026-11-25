@@ -1,22 +1,12 @@
 import React, { useState } from 'react';
-import { api } from '../../services/api';
 import { ArrowLeftRight } from 'lucide-react';
+import { MONITORING_CITIES } from '../../constants/cities';
+import { api } from '../../services/api';
 import type { LocationComparisonResponse } from '../../types';
 
-const COMPARE_CITIES = [
-  { name: 'Delhi NCR', lat: 28.6139, lon: 77.2090 },
-  { name: 'Kochi (Kerala)', lat: 9.9312, lon: 76.2673 },
-  { name: 'Mumbai', lat: 19.0760, lon: 72.8777 },
-  { name: 'Bengaluru', lat: 12.9716, lon: 77.5946 },
-  { name: 'Kolkata', lat: 22.5726, lon: 88.3639 },
-  { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
-  { name: 'London', lat: 51.5074, lon: -0.1278 },
-  { name: 'New York', lat: 40.7128, lon: -74.0060 },
-];
-
 export const LocationComparer: React.FC = () => {
-  const [city1, setCity1] = useState(COMPARE_CITIES[0]);
-  const [city2, setCity2] = useState(COMPARE_CITIES[1]);
+  const [city1, setCity1] = useState(MONITORING_CITIES[0]);
+  const [city2, setCity2] = useState(MONITORING_CITIES[3]);
   const [result, setResult] = useState<LocationComparisonResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,8 +14,12 @@ export const LocationComparer: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.compareLocations(
-        city1.lat, city1.lon, city1.name,
-        city2.lat, city2.lon, city2.name,
+        city1.lat,
+        city1.lon,
+        city1.name,
+        city2.lat,
+        city2.lon,
+        city2.name,
       );
       setResult(data);
     } catch {
@@ -39,7 +33,7 @@ export const LocationComparer: React.FC = () => {
     <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
       <div className="flex items-center space-x-2">
         <ArrowLeftRight className="w-5 h-5 text-teal-400" aria-hidden="true" />
-        <h3 className="font-extrabold text-base text-white">Compare Regional Airsheds</h3>
+        <h2 className="font-extrabold text-base text-white">Compare Regional Airsheds</h2>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -51,12 +45,12 @@ export const LocationComparer: React.FC = () => {
             id="compare-city-1"
             value={city1.name}
             onChange={(e) => {
-              const c = COMPARE_CITIES.find((x) => x.name === e.target.value);
+              const c = MONITORING_CITIES.find((x) => x.name === e.target.value);
               if (c) setCity1(c);
             }}
             className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
           >
-            {COMPARE_CITIES.map((c) => (
+            {MONITORING_CITIES.map((c) => (
               <option key={c.name} value={c.name}>
                 {c.name}
               </option>
@@ -72,12 +66,12 @@ export const LocationComparer: React.FC = () => {
             id="compare-city-2"
             value={city2.name}
             onChange={(e) => {
-              const c = COMPARE_CITIES.find((x) => x.name === e.target.value);
+              const c = MONITORING_CITIES.find((x) => x.name === e.target.value);
               if (c) setCity2(c);
             }}
             className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-sm text-white"
           >
-            {COMPARE_CITIES.map((c) => (
+            {MONITORING_CITIES.map((c) => (
               <option key={c.name} value={c.name}>
                 {c.name}
               </option>
@@ -88,7 +82,7 @@ export const LocationComparer: React.FC = () => {
 
       <button
         type="button"
-        onClick={handleCompare}
+        onClick={() => void handleCompare()}
         disabled={isLoading}
         className="w-full py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 font-bold text-sm text-teal-300 transition"
       >
@@ -117,7 +111,7 @@ export const LocationComparer: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs text-teal-200">
+          <div role="status" className="p-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs text-teal-200">
             <span className="font-bold">Comparative Finding:</span> {result.comparison.summary}
           </div>
         </div>

@@ -69,6 +69,43 @@ def calculate_commute_emissions(mode: str, distance_km: float) -> Dict[str, floa
         "cost_est": round(distance_km * factors["cost_inr_per_km"], 1)
     }
 
+
+def calculate_activity_impact(activity_type: str, units_count: float) -> Dict[str, float]:
+    """Compute avoided CO2 (kg), PM2.5 (g), fuel (L), and cost savings (INR) for a logged clean-air action."""
+    co2 = 0.0
+    pm25 = 0.0
+    fuel = 0.0
+    money = 0.0
+
+    if activity_type == "public_transit_used":
+        co2 = units_count * (EMISSION_FACTORS["car_petrol"]["co2_kg_per_km"] - EMISSION_FACTORS["metro"]["co2_kg_per_km"])
+        pm25 = units_count * (EMISSION_FACTORS["car_petrol"]["pm25_g_per_km"] - EMISSION_FACTORS["metro"]["pm25_g_per_km"])
+        fuel = units_count * EMISSION_FACTORS["car_petrol"]["fuel_liters_per_km"]
+        money = units_count * (EMISSION_FACTORS["car_petrol"]["cost_inr_per_km"] - EMISSION_FACTORS["metro"]["cost_inr_per_km"])
+    elif activity_type in ("cycling_trip", "walking_trip"):
+        co2 = units_count * EMISSION_FACTORS["car_petrol"]["co2_kg_per_km"]
+        pm25 = units_count * EMISSION_FACTORS["car_petrol"]["pm25_g_per_km"]
+        fuel = units_count * EMISSION_FACTORS["car_petrol"]["fuel_liters_per_km"]
+        money = units_count * EMISSION_FACTORS["car_petrol"]["cost_inr_per_km"]
+    elif activity_type == "carpooling":
+        co2 = units_count * EMISSION_FACTORS["car_petrol"]["co2_kg_per_km"] * 0.66
+        pm25 = units_count * EMISSION_FACTORS["car_petrol"]["pm25_g_per_km"] * 0.66
+        fuel = units_count * EMISSION_FACTORS["car_petrol"]["fuel_liters_per_km"] * 0.66
+        money = units_count * EMISSION_FACTORS["car_petrol"]["cost_inr_per_km"] * 0.60
+    elif activity_type == "energy_saved":
+        co2 = units_count * GRID_ELECTRICITY_CO2_PER_KWH
+        money = units_count * 7.5
+    elif activity_type in ("no_waste_burning", "waste_segregated"):
+        co2 = units_count * WASTE_BURNING_CO2_KG_PER_KG
+        pm25 = units_count * WASTE_BURNING_PM25_G_PER_KG
+
+    return {
+        "co2_saved_kg": round(co2, 3),
+        "pm25_avoided_g": round(pm25, 3),
+        "fuel_saved_liters": round(fuel, 3),
+        "money_saved_estimate": round(money, 1),
+    }
+
 def generate_sustainable_routine_alternatives(
     current_mode: str, 
     daily_distance_km: float

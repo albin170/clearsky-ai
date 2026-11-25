@@ -84,7 +84,7 @@ export const SettingsView: React.FC = () => {
           <Settings className="w-6 h-6" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-white">Platform Settings &amp; Notifications</h2>
+          <h1 className="text-xl font-extrabold text-white">Platform Settings &amp; Notifications</h1>
           <p className="text-xs text-neutral-400 mt-0.5">
             Configure exposure thresholds, notification schedules, and manage data privacy
           </p>
@@ -103,10 +103,10 @@ export const SettingsView: React.FC = () => {
       {/* Active Notifications Alert Feed */}
       {alerts.length > 0 && (
         <div className="space-y-3">
-          <h3 className="font-extrabold text-base text-white flex items-center space-x-2">
+          <h2 className="font-extrabold text-base text-white flex items-center space-x-2">
             <Bell className="w-4 h-4 text-amber-400" aria-hidden="true" />
             <span>Active Environmental Advisories ({currentCity})</span>
-          </h3>
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {alerts.map((alt) => (
@@ -127,7 +127,7 @@ export const SettingsView: React.FC = () => {
 
       {/* Notification Preferences Form */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-5">
-        <h3 className="font-extrabold text-base text-white border-b border-neutral-800 pb-3">Smart Alert Thresholds</h3>
+        <h2 className="font-extrabold text-base text-white border-b border-neutral-800 pb-3">Smart Alert Thresholds</h2>
 
         <form onSubmit={handleSavePreferences} className="space-y-4">
           <div className="space-y-2">
@@ -234,10 +234,10 @@ export const SettingsView: React.FC = () => {
 
       {/* Account & Data Privacy Center */}
       <div className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-xl space-y-4">
-        <h3 className="font-extrabold text-base text-white flex items-center space-x-2">
+        <h2 className="font-extrabold text-base text-white flex items-center space-x-2">
           <Shield className="w-4 h-4 text-teal-400" aria-hidden="true" />
           <span>Account Security &amp; Data Privacy Center</span>
-        </h3>
+        </h2>
 
         <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-neutral-300 space-y-2 leading-relaxed">
           <p>

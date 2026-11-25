@@ -14,24 +14,25 @@ export const DashboardView: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="w-12 h-12 rounded-full border-4 border-teal-500/20 border-t-teal-500 animate-spin" />
-        <p className="text-sm text-neutral-400 font-medium">Connecting to live atmospheric sensors & reanalysis...</p>
+        <h1 className="text-sm text-neutral-400 font-medium">Connecting to live atmospheric sensors &amp; reanalysis...</h1>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 rounded-2xl bg-red-950/40 border border-red-800 text-center space-y-3">
-        <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
-        <h3 className="text-lg font-bold text-white">Sensor Connection Interruption</h3>
+      <div role="alert" className="p-6 rounded-2xl bg-red-950/40 border border-red-800 text-center space-y-3">
+        <AlertCircle className="w-10 h-10 text-red-400 mx-auto" aria-hidden="true" />
+        <h1 className="text-lg font-bold text-white">Sensor Connection Interruption</h1>
         <p className="text-sm text-neutral-300 max-w-md mx-auto">{error}</p>
         <button
-          onClick={refreshData}
+          type="button"
+          onClick={() => void refreshData()}
           className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs inline-flex items-center space-x-2 transition"
         >
-          <RotateCw className="w-3.5 h-3.5" />
+          <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Retry Live Query</span>
         </button>
       </div>

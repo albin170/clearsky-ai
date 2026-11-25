@@ -1,21 +1,32 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.auth import get_client_rate_key, get_current_user, get_optional_current_user
 from app.core.database import get_db
-from app.api.auth import get_current_user, get_optional_current_user
+from app.core.security import rate_limiter
 from app.models.models import (
-    User, Community, CommunityMember, CommunityChallenge, 
-    UserChallengeParticipation, CommunityReport, AuditLog
+    Community,
+    CommunityChallenge,
+    CommunityMember,
+    CommunityReport,
+    User,
+    UserChallengeParticipation,
 )
 from app.schemas.schemas import (
-    CommunityCreate, CommunityOut, CommunityChallengeOut,
-    ChallengeJoinRequest, ChallengeCompleteRequest,
-    CommunityReportCreate, CommunityReportOut
+    ChallengeCompleteRequest,
+    ChallengeJoinRequest,
+    CommunityChallengeOut,
+    CommunityCreate,
+    CommunityOut,
+    CommunityReportCreate,
+    CommunityReportOut,
+    DetailMessageResponse,
 )
 
 router = APIRouter(prefix="/community", tags=["Community Action Network"])
+
 
 @router.get("/list", response_model=List[CommunityOut])
 async def list_communities(db: AsyncSession = Depends(get_db)):
@@ -38,36 +49,42 @@ async def list_communities(db: AsyncSession = Depends(get_db)):
         for c, count in rows
     ]
 
+
 @router.post("/create", response_model=CommunityOut, status_code=status.HTTP_201_CREATED)
 async def create_community(
+    request: Request,
     req: CommunityCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    # Check duplicate
-    res = await db.execute(select(Community).where(Community.name == req.name))
+    rate_limiter.check_rate_limit(get_client_rate_key(request, "community_create"), max_requests=15, window_seconds=60)
+    cleaned_name = req.name.strip()
+    if not cleaned_name:
+        raise HTTPException(status_code=422, detail="Community name cannot be empty")
+
+    res = await db.execute(select(Community).where(Community.name == cleaned_name))
     if res.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Community with this name already exists")
 
     new_comm = Community(
-        name=req.name,
-        city=req.city,
-        description=req.description,
+        name=cleaned_name,
+        city=req.city.strip(),
+        description=req.description.strip(),
         category=req.category,
-        created_by_id=current_user.id
+        created_by_id=current_user.id,
     )
     db.add(new_comm)
     await db.commit()
     await db.refresh(new_comm)
 
-    # Add creator as admin member
-    membership = CommunityMember(
-        community_id=new_comm.id,
-        user_id=current_user.id,
-        role="admin",
-        total_points=50
+    db.add(
+        CommunityMember(
+            community_id=new_comm.id,
+            user_id=current_user.id,
+            role="admin",
+            total_points=50,
+        )
     )
-    db.add(membership)
     await db.commit()
 
     return CommunityOut(
@@ -77,38 +94,40 @@ async def create_community(
         description=new_comm.description,
         category=new_comm.category,
         members_count=1,
-        created_at=new_comm.created_at
+        created_at=new_comm.created_at,
     )
 
-@router.post("/join/{community_id}")
+
+@router.post("/join/{community_id}", response_model=DetailMessageResponse)
 async def join_community(
     community_id: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     comm_res = await db.execute(select(Community).where(Community.id == community_id))
     if not comm_res.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Community not found")
 
-    # Check if already joined
     res = await db.execute(
         select(CommunityMember).where(
             CommunityMember.community_id == community_id,
-            CommunityMember.user_id == current_user.id
+            CommunityMember.user_id == current_user.id,
         )
     )
     if res.scalar_one_or_none():
         return {"detail": "Already a member of this community"}
 
-    membership = CommunityMember(
-        community_id=community_id,
-        user_id=current_user.id,
-        role="member",
-        total_points=25
+    db.add(
+        CommunityMember(
+            community_id=community_id,
+            user_id=current_user.id,
+            role="member",
+            total_points=25,
+        )
     )
-    db.add(membership)
     await db.commit()
     return {"detail": "Successfully joined community! Earned 25 welcome points."}
+
 
 @router.get("/challenges", response_model=List[CommunityChallengeOut])
 async def list_challenges(db: AsyncSession = Depends(get_db)):
@@ -118,7 +137,7 @@ async def list_challenges(db: AsyncSession = Depends(get_db)):
             UserChallengeParticipation,
             UserChallengeParticipation.challenge_id == CommunityChallenge.id,
         )
-        .where(CommunityChallenge.is_active == True)
+        .where(CommunityChallenge.is_active.is_(True))
         .group_by(CommunityChallenge.id)
     )
     rows = res.all()
@@ -136,11 +155,12 @@ async def list_challenges(db: AsyncSession = Depends(get_db)):
         for ch, count in rows
     ]
 
-@router.post("/challenges/join")
+
+@router.post("/challenges/join", response_model=DetailMessageResponse)
 async def join_challenge(
     req: ChallengeJoinRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     ch_res = await db.execute(select(CommunityChallenge).where(CommunityChallenge.id == req.challenge_id))
     if not ch_res.scalar_one_or_none():
@@ -148,72 +168,73 @@ async def join_challenge(
     res = await db.execute(
         select(UserChallengeParticipation).where(
             UserChallengeParticipation.challenge_id == req.challenge_id,
-            UserChallengeParticipation.user_id == current_user.id
+            UserChallengeParticipation.user_id == current_user.id,
         )
     )
     part = res.scalar_one_or_none()
     if part:
         return {"detail": "You have already joined this challenge", "status": part.status}
 
-    new_part = UserChallengeParticipation(
-        user_id=current_user.id,
-        challenge_id=req.challenge_id,
-        status="in_progress",
-        progress_days=1
+    db.add(
+        UserChallengeParticipation(
+            user_id=current_user.id,
+            challenge_id=req.challenge_id,
+            status="in_progress",
+            progress_days=1,
+        )
     )
-    db.add(new_part)
     await db.commit()
     return {"detail": "Joined challenge successfully! Track your daily actions to complete it."}
 
-@router.post("/challenges/complete")
+
+@router.post("/challenges/complete", response_model=DetailMessageResponse)
 async def complete_challenge(
     req: ChallengeCompleteRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     res = await db.execute(
         select(UserChallengeParticipation).where(
             UserChallengeParticipation.challenge_id == req.challenge_id,
-            UserChallengeParticipation.user_id == current_user.id
+            UserChallengeParticipation.user_id == current_user.id,
         )
     )
     part = res.scalar_one_or_none()
     if not part:
         raise HTTPException(status_code=400, detail="You must join the challenge first")
 
+    if part.status == "completed":
+        return {"detail": "Challenge already completed", "points_awarded": 0}
+
     ch_res = await db.execute(select(CommunityChallenge).where(CommunityChallenge.id == req.challenge_id))
     challenge = ch_res.scalar_one_or_none()
     reward = challenge.points_reward if challenge else 100
 
     part.status = "completed"
-    part.self_reported_notes = req.self_reported_notes
+    part.self_reported_notes = req.self_reported_notes.strip()
     part.completed_at = datetime.now(timezone.utc)
 
-    # Award points to community memberships
     mem_res = await db.execute(select(CommunityMember).where(CommunityMember.user_id == current_user.id))
-    memberships = mem_res.scalars().all()
-    for m in memberships:
+    for m in mem_res.scalars().all():
         m.total_points += reward
 
     await db.commit()
     return {
         "detail": f"Congratulations! Challenge completed! You earned {reward} Eco Points.",
-        "points_awarded": reward
+        "points_awarded": reward,
     }
 
+
 @router.get("/reports", response_model=List[CommunityReportOut])
-async def list_reports(
-    db: AsyncSession = Depends(get_db)
-):
+async def list_reports(db: AsyncSession = Depends(get_db)):
     res = await db.execute(
-        select(CommunityReport).where(CommunityReport.status != "flagged_spam").order_by(CommunityReport.created_at.desc())
+        select(CommunityReport)
+        .where(CommunityReport.status != "flagged_spam")
+        .order_by(CommunityReport.created_at.desc())
     )
     reports = res.scalars().all()
-    
-    output = []
-    for r in reports:
-        reported_by = "Anonymous Neighbor" if r.is_anonymous else "Community Member"
-        output.append(CommunityReportOut(
+    return [
+        CommunityReportOut(
             id=r.id,
             title=r.title,
             report_type=r.report_type,
@@ -224,27 +245,31 @@ async def list_reports(
             status=r.status,
             is_anonymous=r.is_anonymous,
             created_at=r.created_at,
-            reported_by=reported_by
-        ))
-    return output
+            reported_by="Anonymous Neighbor" if r.is_anonymous else "Community Member",
+        )
+        for r in reports
+    ]
+
 
 @router.post("/reports", response_model=CommunityReportOut, status_code=status.HTTP_201_CREATED)
 async def submit_community_report(
+    request: Request,
     req: CommunityReportCreate,
     current_user: Optional[User] = Depends(get_optional_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
+    rate_limiter.check_rate_limit(get_client_rate_key(request, "community_report"), max_requests=20, window_seconds=60)
     new_report = CommunityReport(
         user_id=current_user.id if current_user else None,
         community_id=req.community_id,
-        title=req.title,
+        title=req.title.strip(),
         report_type=req.report_type,
-        description=req.description,
+        description=req.description.strip(),
         latitude=req.latitude,
         longitude=req.longitude,
-        address=req.address,
+        address=req.address.strip(),
         is_anonymous=req.is_anonymous,
-        status="pending"
+        status="pending",
     )
     db.add(new_report)
     await db.commit()
@@ -261,5 +286,5 @@ async def submit_community_report(
         status=new_report.status,
         is_anonymous=new_report.is_anonymous,
         created_at=new_report.created_at,
-        reported_by="Anonymous Neighbor" if new_report.is_anonymous else "Community Member"
+        reported_by="Anonymous Neighbor" if new_report.is_anonymous else "Community Member",
     )

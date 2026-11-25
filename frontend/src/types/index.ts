@@ -252,6 +252,7 @@ export interface ImpactSummary {
   }>;
   methodology_note: string;
   eco_score: number;
+  is_demo_data?: boolean;
 }
 
 export interface WhatIfResponse {
